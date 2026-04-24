@@ -894,12 +894,11 @@ async function enviarSolicitud(){
           <p style="text-align:center;font-size:10px;color:#94A3B8;margin-top:16px;letter-spacing:1px">AENA · SMART BUSINESS CONTROL</p>
         </div>`;
 
-      await fetch('https://api.resend.com/emails',{
+      await fetch('/.netlify/functions/send-email',{
         method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':'Bearer re_i95PP2z5_BRLB9Yxsp1p3Z4FVT9oemJpd'},
+        headers:{'Content-Type':'application/json'},
         body:JSON.stringify({
-          from:'AENA Sistema <onboarding@resend.dev>',
-          to:[emailSup],
+          to:emailSup,
           subject:`[AENA] Nueva solicitud de ${tipoLabel} — ${nombreEmp}`,
           html:htmlEmail
         })
