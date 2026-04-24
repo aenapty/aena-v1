@@ -614,6 +614,7 @@ table.dt th:first-child{padding-left:14px}
           </div>
         </div>
         <div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 14px;display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+          <div><label class="fl">BUSCAR</label><input type="text" class="fi" id="colab-filtro-buscar" placeholder="Nombre, cédula o N°..." style="min-width:180px" oninput="renderColaboradores()"></div>
           <div><label class="fl">ESTADO</label>
             <select class="fi" id="colab-filtro-estado" style="min-width:120px" onchange="renderColaboradores()">
               <option value="activo">Activos</option>
@@ -623,11 +624,11 @@ table.dt th:first-child{padding-left:14px}
           </div>
           <div><label class="fl">INGRESO DESDE</label><input type="date" class="fi" id="colab-filtro-desde" style="min-width:140px" onchange="renderColaboradores()"></div>
           <div><label class="fl">INGRESO HASTA</label><input type="date" class="fi" id="colab-filtro-hasta" style="min-width:140px" onchange="renderColaboradores()"></div>
-          <button class="btn-accion btn-accion-ghost" onclick="document.getElementById('colab-filtro-estado').value='activo';document.getElementById('colab-filtro-desde').value='';document.getElementById('colab-filtro-hasta').value='';renderColaboradores()">Limpiar</button>
+          <button class="btn-accion btn-accion-ghost" onclick="document.getElementById('colab-filtro-buscar').value='';document.getElementById('colab-filtro-estado').value='activo';document.getElementById('colab-filtro-desde').value='';document.getElementById('colab-filtro-hasta').value='';renderColaboradores()">Limpiar</button>
         </div>
         <div class="card" style="padding:0;overflow:hidden">
           <div class="tbl-wrap"><table class="dt">
-            <thead><tr><th>NOMBRE</th><th>CÉDULA</th><th>CARGO</th><th>INGRESO</th><th>SALDO VAC.</th><th>SALDO INC.</th><th>ESTADO</th><th></th></tr></thead>
+            <thead><tr><th>N°</th><th>NOMBRE</th><th>CÉDULA</th><th>CARGO</th><th>INGRESO</th><th>SALDO VAC.</th><th>SALDO INC.</th><th>ESTADO</th><th></th></tr></thead>
             <tbody id="tbody-colaboradores"></tbody>
           </table></div>
         </div>
@@ -880,13 +881,15 @@ table.dt th:first-child{padding-left:14px}
 <div class="modal-overlay hidden" id="modal-colaborador">
   <div class="modal" style="max-width:500px">
     <div class="modal-title">Nuevo colaborador</div>
+    <div id="col-reingreso-aviso" class="hidden" style="margin-bottom:14px;padding:10px 14px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;font-size:12px;color:#92400E"></div>
     <div class="fg">
+      <div><label class="fl">N° EMPLEADO</label><input type="text" class="fi" id="col-numero" readonly placeholder="Auto" style="background:#F8FAFF;color:var(--blue);font-weight:600"></div>
+      <div><label class="fl">ESTADO</label><select class="fi" id="col-estado"><option value="activo">Activo</option><option value="inactivo">Inactivo</option></select></div>
       <div class="fg-full"><label class="fl">NOMBRE COMPLETO</label><input type="text" class="fi" id="col-nombre" placeholder="Nombre completo"></div>
-      <div><label class="fl">CÉDULA / PASAPORTE</label><input type="text" class="fi" id="col-cedula" placeholder="8-000-0000"></div>
+      <div><label class="fl">CÉDULA / PASAPORTE</label><input type="text" class="fi" id="col-cedula" placeholder="8-000-0000" onblur="verificarCedulaNuevo()"></div>
       <div><label class="fl">CARGO</label><input type="text" class="fi" id="col-cargo" placeholder="Cargo o puesto"></div>
       <div><label class="fl">FECHA DE INGRESO</label><input type="date" class="fi" id="col-ingreso"></div>
       <div><label class="fl">NSS (CSS)</label><input type="text" class="fi" id="col-nss" placeholder="Número seguro social"></div>
-      <div><label class="fl">ESTADO</label><select class="fi" id="col-estado"><option value="activo">Activo</option><option value="inactivo">Inactivo</option></select></div>
     </div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
       <button class="btn btn-ghost" onclick="hideModal('modal-colaborador')">Cancelar</button>
@@ -983,12 +986,13 @@ table.dt th:first-child{padding-left:14px}
     <div class="modal-title">Editar colaborador</div>
     <input type="hidden" id="ec-id">
     <div class="fg">
+      <div><label class="fl">N° EMPLEADO</label><input type="text" class="fi" id="ec-numero" readonly style="background:#F8FAFF;color:var(--blue);font-weight:600"></div>
+      <div><label class="fl">ESTADO</label><select class="fi" id="ec-estado"><option value="activo">Activo</option><option value="inactivo">Inactivo</option></select></div>
       <div class="fg-full"><label class="fl">NOMBRE COMPLETO</label><input type="text" class="fi" id="ec-nombre"></div>
       <div><label class="fl">CÉDULA / PASAPORTE</label><input type="text" class="fi" id="ec-cedula"></div>
       <div><label class="fl">CARGO</label><input type="text" class="fi" id="ec-cargo"></div>
       <div><label class="fl">FECHA DE INGRESO</label><input type="date" class="fi" id="ec-ingreso"></div>
       <div><label class="fl">NSS (CSS)</label><input type="text" class="fi" id="ec-nss"></div>
-      <div><label class="fl">ESTADO</label><select class="fi" id="ec-estado"><option value="activo">Activo</option><option value="inactivo">Inactivo</option></select></div>
     </div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
       <button class="btn btn-danger btn-sm" onclick="eliminarColaborador(document.getElementById('ec-id').value);hideModal('modal-editar-colaborador')">Eliminar</button>
@@ -2457,6 +2461,7 @@ function renderSaldos(){
 }
 
 function renderColaboradores(){
+  const filtroBuscar=(document.getElementById('colab-filtro-buscar')?.value||'').toLowerCase().trim();
   const filtroEstado=document.getElementById('colab-filtro-estado')?.value||'activo';
   const filtroDesde=document.getElementById('colab-filtro-desde')?.value||'';
   const filtroHasta=document.getElementById('colab-filtro-hasta')?.value||'';
@@ -2464,12 +2469,18 @@ function renderColaboradores(){
   let lista=filtroEstado==='todos'?[...colaboradores]:colaboradores.filter(c=>c.estado===filtroEstado);
   if(filtroDesde) lista=lista.filter(c=>(c.fecha_ingreso||'')>=filtroDesde);
   if(filtroHasta) lista=lista.filter(c=>(c.fecha_ingreso||'')<=filtroHasta);
+  if(filtroBuscar) lista=lista.filter(c=>
+    (c.nombre||'').toLowerCase().includes(filtroBuscar)||
+    (c.cedula||'').toLowerCase().includes(filtroBuscar)||
+    String(c.numero_empleado||'').includes(filtroBuscar)
+  );
 
   document.getElementById('tbody-colaboradores').innerHTML=lista.map(c=>{
     const sv=calcSaldoVac(c.id),si=calcSaldoInc(c.id);
     const col=AVATARCOLS[Math.abs(c.nombre.charCodeAt(0))%AVATARCOLS.length];
     const estTag=c.estado==='activo'?'tag-green':'tag-gray';
     return `<tr style="cursor:pointer" ondblclick="abrirEdicionColaborador('${c.id}')" title="Doble clic para editar">
+      <td style="font-weight:700;color:var(--blue);text-align:center">${c.numero_empleado?String(c.numero_empleado).padStart(3,'0'):'—'}</td>
       <td><div style="display:flex;align-items:center;gap:10px">
         <div class="emp-avatar" style="background:${col}">${c.nombre.substring(0,2).toUpperCase()}</div>
         <div><div style="font-weight:500">${c.nombre}</div><div style="font-size:10px;color:var(--muted)">${c.cedula||''}</div></div>
@@ -2480,7 +2491,7 @@ function renderColaboradores(){
       <td><span class="tag ${estTag}">${c.estado||'activo'}</span></td>
       <td><button class="btn btn-danger" onclick="event.stopPropagation();eliminarColaborador('${c.id}')">x</button></td>
     </tr>`;
-  }).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">Sin colaboradores con los filtros seleccionados.</td></tr>';
+  }).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">Sin colaboradores con los filtros seleccionados.</td></tr>';
 }
 function renderMovimientos(){
   const lista=filtroTipo==='todos'?movimientos:movimientos.filter(m=>m.tipo===filtroTipo);
@@ -3133,6 +3144,7 @@ function limpiarFormularioColaborador(){
   ['col-nombre','col-cedula','col-cargo','col-nss'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('col-ingreso').value='';
   document.getElementById('col-estado').value='activo';
+  document.getElementById('col-reingreso-aviso')?.classList.add('hidden');
 }
 function cancelarModalMovimiento(){
   // Restaurar título y botón si estaba en modo edición
@@ -3159,6 +3171,7 @@ function abrirEdicionColaborador(id){
   const c=colaboradores.find(x=>x.id===id);
   if(!c)return;
   document.getElementById('ec-id').value=id;
+  document.getElementById('ec-numero').value=c.numero_empleado?String(c.numero_empleado).padStart(3,'0'):'—';
   document.getElementById('ec-nombre').value=c.nombre||'';
   document.getElementById('ec-cedula').value=c.cedula||'';
   document.getElementById('ec-cargo').value=c.cargo||'';
@@ -3506,9 +3519,45 @@ async function guardarTipoPermiso(){
 }
 async function eliminarTipoPermiso(id){if(!confirm('¿Eliminar?'))return;await sb.from('clasificaciones_gasto').update({activo:false}).eq('id',id);await loadTiposPermiso(clienteActivo.id);renderConfig();}
 
+async function verificarCedulaNuevo(){
+  const cedula=document.getElementById('col-cedula')?.value?.trim();
+  const aviso=document.getElementById('col-reingreso-aviso');
+  if(!aviso)return;
+  if(!cedula){aviso.classList.add('hidden');return;}
+  const activo=colaboradores.find(c=>c.cedula===cedula&&c.estado==='activo');
+  const inactivos=colaboradores.filter(c=>c.cedula===cedula&&c.estado==='inactivo');
+  if(activo){
+    aviso.innerHTML=`⚠️ Ya existe un colaborador activo con esta cédula: <strong>${activo.nombre}</strong> (#${String(activo.numero_empleado||0).padStart(3,'0')}). No se puede crear un duplicado activo.`;
+    aviso.classList.remove('hidden');
+  } else if(inactivos.length>0){
+    const nombres=inactivos.map(c=>`<strong>${c.nombre}</strong> (#${String(c.numero_empleado||0).padStart(3,'0')}, ingreso ${c.fecha_ingreso||'—'})`).join(', ');
+    aviso.innerHTML=`ℹ️ Esta cédula pertenece a un colaborador inactivo: ${nombres}. Si es un reingreso, este será un registro nuevo con número propio y conteo desde cero.`;
+    aviso.classList.remove('hidden');
+  } else {
+    aviso.classList.add('hidden');
+  }
+}
 async function guardarColaborador(){
   const id=clienteActivo?.id;
-  const {error}=await sb.from('colaboradores').insert({cliente_id:id,nombre:document.getElementById('col-nombre').value,cedula:document.getElementById('col-cedula').value,cargo:document.getElementById('col-cargo').value,fecha_ingreso:document.getElementById('col-ingreso').value||null,nss:document.getElementById('col-nss').value||null,estado:document.getElementById('col-estado').value});
+  const cedula=document.getElementById('col-cedula').value.trim();
+  const nombre=document.getElementById('col-nombre').value.trim();
+  if(!nombre){alert('El nombre es obligatorio.');return;}
+  if(cedula){
+    const activo=colaboradores.find(c=>c.cedula===cedula&&c.estado==='activo');
+    if(activo){
+      alert(`Ya existe un colaborador activo con la cédula "${cedula}": ${activo.nombre} (#${String(activo.numero_empleado||0).padStart(3,'0')}).\n\nSi es un reingreso, primero inactiva al colaborador anterior.`);
+      return;
+    }
+  }
+  const maxNum=colaboradores.reduce((max,c)=>Math.max(max,c.numero_empleado||0),0);
+  const nuevoNumero=maxNum+1;
+  const {error}=await sb.from('colaboradores').insert({
+    cliente_id:id,numero_empleado:nuevoNumero,nombre,
+    cedula:cedula||null,cargo:document.getElementById('col-cargo').value||null,
+    fecha_ingreso:document.getElementById('col-ingreso').value||null,
+    nss:document.getElementById('col-nss').value||null,
+    estado:document.getElementById('col-estado').value
+  });
   if(error){alert('Error: '+error.message);return;}
   hideModal('modal-colaborador');await loadColaboradores(id);renderColaboradores();
 }
@@ -3674,19 +3723,23 @@ async function confirmarImportMovs(){
 
 function showModal(id){
   document.getElementById(id).classList.remove('hidden');
+  if(id==='modal-colaborador'){
+    limpiarFormularioColaborador();
+    const maxNum=colaboradores.reduce((max,c)=>Math.max(max,c.numero_empleado||0),0);
+    const el=document.getElementById('col-numero');
+    if(el)el.value=String(maxNum+1).padStart(3,'0');
+  }
   if(id==='modal-factura'&&!facturaEditandoId){updateProvDatalist();lineasFactura=[{nf:'',concepto:'',detalle:'',clasificacion_id:'',gravable:'',exento:'',itbms:''}];renderLineas();document.getElementById('fc-ret-group').style.display='none';resetModalFactura();}
   if(id==='modal-movimiento'){
-    // Limpiar completamente antes de abrir (solo si NO viene de abrirEdicionMovimiento)
     if(!movimientoEditandoId){
       limpiarFormularioMovimiento();
-      document.getElementById('mov-colab').innerHTML='<option value="">— Seleccionar colaborador —</option>'+colaboradores.map(c=>'<option value="'+c.id+'">'+c.nombre+'</option>').join('');
+      document.getElementById('mov-colab').innerHTML='<option value="">— Seleccionar colaborador —</option>'+colaboradores.filter(c=>c.estado==='activo').map(c=>'<option value="'+c.id+'">'+c.nombre+'</option>').join('');
       document.getElementById('btn-eliminar-mov-edicion')?.classList.add('hidden');
       const btn=document.getElementById('btn-guardar-mov');
       if(btn){btn.setAttribute('onclick','guardarMovimiento()');btn.textContent='Guardar';}
       document.querySelector('#modal-movimiento .modal-title').textContent='Nuevo movimiento';
       toggleMovTipo();
     } else {
-      // Modo edición: mostrar botón eliminar
       document.getElementById('btn-eliminar-mov-edicion')?.classList.remove('hidden');
       const btn=document.getElementById('btn-guardar-mov');
       if(btn){btn.setAttribute('onclick','guardarEdicionMovimiento()');btn.textContent='Guardar cambios';}
@@ -4102,19 +4155,19 @@ function exportExcelColaboradores(){
 
   const wb=XLSX.utils.book_new();
   const ws=XLSX.utils.aoa_to_sheet([]);
-  const headers=['NOMBRE','CÉDULA','CARGO','FECHA INGRESO','NSS','ESTADO','SALDO VAC. (días)','SALDO INC. (días)'];
+  const headers=['N°','NOMBRE','CÉDULA','CARGO','FECHA INGRESO','NSS','ESTADO','SALDO VAC. (días)','SALDO INC. (días)'];
   const startRow=buildExcelEncabezado(wb,ws,'Colaboradores — '+filtroEstado.toUpperCase(),headers.length);
   XLSX.utils.sheet_add_aoa(ws,[headers],{origin:{r:startRow-1,c:0}});
   const rows=lista.map(c=>[
+    c.numero_empleado?String(c.numero_empleado).padStart(3,'0'):'',
     c.nombre,c.cedula||'',c.cargo||'',c.fecha_ingreso||'',c.nss||'',c.estado||'activo',
     calcSaldoVac(c.id),calcSaldoInc(c.id)
   ]);
   XLSX.utils.sheet_add_aoa(ws,rows,{origin:{r:startRow,c:0}});
-  ws['!cols']=[{wch:24},{wch:14},{wch:18},{wch:12},{wch:16},{wch:10},{wch:16},{wch:16}];
-  // Formato numérico para columnas de saldo
+  ws['!cols']=[{wch:6},{wch:24},{wch:14},{wch:18},{wch:12},{wch:16},{wch:10},{wch:16},{wch:16}];
   const rangeC=XLSX.utils.decode_range(ws['!ref']||'A1');
   for(let r=startRow;r<=rangeC.e.r;r++){
-    [6,7].forEach(c=>{
+    [7,8].forEach(c=>{
       const addr=XLSX.utils.encode_cell({r,c});
       if(ws[addr]&&typeof ws[addr].v==='number')ws[addr].z='#,##0.00';
     });
