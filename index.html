@@ -452,6 +452,7 @@ table.dt th:first-child{padding-left:14px}
           </div>
         </div>
         <div class="kpi-grid" id="dash-kpis"></div>
+        <div id="dash-solicitudes-banner" class="hidden"></div>
         <div id="dash-mod-cards"></div>
         <div class="two-col">
           <div class="card" id="dash-resumen"></div>
@@ -725,6 +726,7 @@ table.dt th:first-child{padding-left:14px}
             <div id="sa-clientes-list" style="margin-top:8px"></div>
           </div>
         </div>
+        <div class="form-section">
           <div class="form-section-title">Datos de la empresa</div>
           <div style="display:flex;align-items:center;gap:20px;margin-bottom:16px;flex-wrap:wrap">
             <div id="conf-logo-preview" style="width:80px;height:80px;border-radius:12px;border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;background:#F4F6F9" onclick="document.getElementById('conf-logo-input').click()">
@@ -811,10 +813,6 @@ table.dt th:first-child{padding-left:14px}
           </table></div>
         </div>
       </div>
-
-    </div>
-  </div>
-</div>
 
 <!-- MODALS -->
 <div class="modal-overlay hidden" id="modal-factura">
@@ -1759,6 +1757,27 @@ function renderDash(){
     const vA=movimientos.filter(m=>m.tipo==='vacacion'&&m.estado==='activo').length;
     const iA=movimientos.filter(m=>m.tipo==='incapacidad'&&m.estado==='activo').length;
     const pA=movimientos.filter(m=>m.tipo==='permiso'&&m.estado==='activo').length;
+
+    // Banner de solicitudes pendientes de supervisor
+    const pendSup=solicitudes.filter(s=>s.estado==='pendiente_supervisor'||s.estado==='modificado');
+    const bannerEl=document.getElementById('dash-solicitudes-banner');
+    if(bannerEl){
+      if(pendSup.length>0){
+        bannerEl.innerHTML=`<div onclick="goPage('solicitudes')" style="cursor:pointer;background:#FFF7ED;border:1.5px solid #FED7AA;border-radius:12px;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="background:#F97316;color:#fff;font-size:13px;font-weight:800;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center">${pendSup.length}</div>
+            <div>
+              <div style="font-weight:700;font-size:13px;color:#C2410C">Solicitud${pendSup.length>1?'es':''} pendiente${pendSup.length>1?'s':''} de aprobación</div>
+              <div style="font-size:11px;color:#9A3412;margin-top:2px">${pendSup.map(s=>(s.colaboradores?.nombre||'Colaborador')+' — '+(s.tipo_movimiento||'')).slice(0,2).join(' · ')}${pendSup.length>2?' · ...':''}</div>
+            </div>
+          </div>
+          <span style="font-size:12px;color:#C2410C;font-weight:600">Ver solicitudes →</span>
+        </div>`;
+        bannerEl.classList.remove('hidden');
+      } else {
+        bannerEl.classList.add('hidden');
+      }
+    }
     document.getElementById('dash-kpis').innerHTML=kpi('kpi-teal','Colaboradores activos',colaboradores.length,'')+kpi('kpi-lime','Vacaciones activas',vA,'')+kpi('kpi-amber','Incapacidades activas',iA,'')+kpi('kpi-blue','Permisos activos',pA,'');
     document.getElementById('dash-mod-cards').innerHTML='<div class="mod-cards"><div class="mod-card mod-card-lime" onclick="goPage(\'colaboradores\')"><div class="mod-card-shine"></div><span class="mod-card-icon">👥</span><div class="mod-card-title">Colaboradores</div><div class="mod-card-sub">Gestión de personal</div></div><div class="mod-card mod-card-teal" onclick="goPage(\'movimientos\')"><div class="mod-card-shine"></div><span class="mod-card-icon">📅</span><div class="mod-card-title">Movimientos</div><div class="mod-card-sub">Vacaciones · Incapacidades · Permisos</div></div><div class="mod-card mod-card-purple" onclick="goPage(\'saldos\')"><div class="mod-card-shine"></div><span class="mod-card-icon">📊</span><div class="mod-card-title">Saldos y reportes</div><div class="mod-card-sub">Control de días disponibles</div></div></div>';
     document.getElementById('dash-resumen').innerHTML='<div class="card-header"><div class="card-title">Saldos de vacaciones</div></div>'+colaboradores.slice(0,6).map(c=>{const s=calcSaldoVac(c.id);return '<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="font-weight:500">'+c.nombre+'</span><span style="font-weight:600;color:'+(s<5?'var(--red)':s<15?'#B45309':'#166534')+'">'+s.toFixed(1)+' días</span></div><div class="saldo-bar"><div class="saldo-fill" style="width:'+Math.min(s/30*100,100).toFixed(0)+'%;background:'+(s<5?'var(--red)':s<15?'var(--amber)':'var(--lime)')+'"></div></div></div>';}).join('');
