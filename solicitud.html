@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AENA — Solicitud de Movimiento</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#0A1628;--navy2:#0D1E38;
+  --blue:#0066FF;--blue2:#0052CC;--blue3:#3385FF;
+  --lime:#7FD84A;--lime2:#6BC43A;
+  --bg:#F0F4FA;--white:#fff;
+  --text:#1A2540;--muted:#6B7A99;--border:#DDE3F0;
+  --red:#EF4444;--amber:#F59E0B;--green:#22C55E;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+.topbar{background:var(--navy);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between}
+.topbar-logo{display:flex;align-items:center;gap:10px}
+.logo-diamond{width:28px;height:28px;background:linear-gradient(135deg,var(--blue),var(--lime));border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:12px;color:#fff}
+.logo-text{font-family:'Syne',sans-serif;font-weight:800;font-size:16px;color:#fff;letter-spacing:1px}
+.logo-sub{font-size:9px;color:rgba(255,255,255,.5);letter-spacing:2px;font-weight:400;text-transform:uppercase}
+.container{max-width:600px;width:100%;margin:0 auto;padding:32px 16px;flex:1}
+.card{background:#fff;border-radius:16px;box-shadow:0 1px 3px rgba(10,22,40,.08),0 4px 16px rgba(10,22,40,.06);padding:28px}
+.page-title{font-family:'Syne',sans-serif;font-weight:700;font-size:20px;color:var(--navy);margin-bottom:4px}
+.page-sub{font-size:13px;color:var(--muted);margin-bottom:24px}
+.section-title{font-family:'Syne',sans-serif;font-weight:700;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--navy);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.fl{display:block;font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+.fi{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);background:#fff;transition:border-color .15s;outline:none}
+.fi:focus{border-color:var(--blue)}
+.fi:disabled{background:#F8FAFC;color:var(--muted);cursor:not-allowed}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.fg-full{grid-column:1/-1}
+.btn{padding:10px 20px;border-radius:8px;font-family:'Syne',sans-serif;font-weight:700;font-size:13px;cursor:pointer;border:none;letter-spacing:.3px;transition:all .15s}
+.btn-primary{background:var(--blue);color:#fff}
+.btn-primary:hover{background:var(--blue2)}
+.btn-primary:disabled{background:#93C5FD;cursor:not-allowed}
+.btn-outline{background:transparent;color:var(--navy);border:1.5px solid var(--navy)}
+.btn-ghost{background:transparent;color:var(--muted);border:1.5px solid var(--border)}
+.btn-danger{background:var(--red);color:#fff}
+.alert{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px}
+.alert-info{background:#EFF6FF;color:#1D4ED8;border:1px solid #BFDBFE}
+.alert-warning{background:#FFFBEB;color:#92400E;border:1px solid #FDE68A}
+.alert-success{background:#F0FDF4;color:#166534;border:1px solid #BBF7D0}
+.alert-error{background:#FEF2F2;color:#991B1B;border:1px solid #FECACA}
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:.5px solid var(--border);font-size:13px}
+.info-row:last-child{border-bottom:none}
+.info-label{color:var(--muted);font-size:12px}
+.info-value{font-weight:600}
+.timer-bar{background:#F0F4FA;border-radius:8px;height:6px;margin:8px 0}
+.timer-fill{height:100%;border-radius:8px;background:var(--lime);transition:width .5s}
+.timer-fill.warning{background:var(--amber)}
+.timer-fill.danger{background:var(--red)}
+.print-area{display:none}
+@media print{
+  body *{visibility:hidden}
+  .print-area,.print-area *{visibility:visible}
+  .print-area{display:block!important;position:fixed;top:0;left:0;width:100%;padding:20px}
+  .no-print{display:none!important}
+}
+#loading-state{text-align:center;padding:60px 20px}
+.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.hidden{display:none!important}
+.footer{text-align:center;padding:20px;font-size:11px;color:var(--muted);font-family:'Syne',sans-serif;letter-spacing:1px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">
+    <div class="logo-diamond">A</div>
+    <div>
+      <div class="logo-text">AENA</div>
+      <div class="logo-sub">Smart Business Control</div>
+    </div>
+  </div>
+  <div id="topbar-empresa" style="font-size:12px;color:rgba(255,255,255,.6);font-family:'Syne',sans-serif"></div>
+</div>
+
+<div class="container">
+
+  <!-- Estado: cargando -->
+  <div id="loading-state">
+    <div class="spinner"></div>
+    <div style="color:var(--muted);font-size:14px">Verificando solicitud...</div>
+  </div>
+
+  <!-- Estado: expirado/inválido -->
+  <div id="error-state" class="card hidden" style="text-align:center;padding:40px">
+    <div style="font-size:48px;margin-bottom:16px">⏱</div>
+    <div class="page-title" style="font-size:22px;margin-bottom:8px" id="error-title">Link inválido</div>
+    <div style="color:var(--muted);font-size:14px" id="error-msg">Este link no es válido o ha expirado.</div>
+  </div>
+
+  <!-- Estado: ya enviado / completado -->
+  <div id="sent-state" class="card hidden" style="text-align:center;padding:40px">
+    <div style="font-size:48px;margin-bottom:16px">✅</div>
+    <div class="page-title" style="font-size:22px;margin-bottom:8px">Solicitud enviada</div>
+    <div style="color:var(--muted);font-size:14px">Tu solicitud fue enviada correctamente.<br>El supervisor recibirá una notificación para revisarla.</div>
+  </div>
+
+  <!-- Estado: formulario activo -->
+  <div id="form-state" class="hidden">
+
+    <!-- Timer -->
+    <div class="card" style="margin-bottom:16px;padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="font-size:12px;color:var(--muted);font-weight:600">⏱ TIEMPO RESTANTE</div>
+        <div id="timer-text" style="font-size:13px;font-weight:700;color:var(--navy)"></div>
+      </div>
+      <div class="timer-bar"><div class="timer-fill" id="timer-fill"></div></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">Este link expira en el tiempo mostrado. Completa el formulario antes de que venza.</div>
+    </div>
+
+    <!-- Datos de la solicitud (info) -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="section-title">Información de tu solicitud</div>
+      <div id="info-solicitud"></div>
+    </div>
+
+    <!-- Formulario según tipo -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="section-title">Completa los datos</div>
+      <div id="form-vacacion" class="hidden">
+        <!-- Saldos por año ciclo -->
+        <div id="vac-saldos-wrap" style="margin-bottom:16px">
+          <div style="font-size:11px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Saldos disponibles</div>
+          <div id="vac-saldos-tabla"></div>
+        </div>
+        <!-- Cabecera líneas -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="font-size:11px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.5px">Días a tomar</div>
+          <button class="btn btn-ghost btn-sm" onclick="addLineaVacEmp()">+ Agregar línea</button>
+        </div>
+        <div style="display:grid;grid-template-columns:90px 120px 120px 80px 28px;gap:6px;padding-bottom:6px;border-bottom:1px solid var(--border);margin-bottom:6px">
+          <div class="fl" style="margin:0;font-size:9px">AÑO CICLO</div>
+          <div class="fl" style="margin:0;font-size:9px">FECHA INICIO</div>
+          <div class="fl" style="margin:0;font-size:9px">FECHA FIN</div>
+          <div class="fl" style="margin:0;font-size:9px">DÍAS</div>
+          <div></div>
+        </div>
+        <div id="vac-lineas-container"></div>
+        <div style="display:flex;justify-content:flex-end;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:12px">
+          <span style="color:var(--muted)">Total días: <strong id="vac-total-dias" style="color:var(--blue)">0</strong></span>
+        </div>
+        <div id="vac-advertencia" class="hidden" style="margin-top:8px;padding:10px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;font-size:12px;color:#92400E"></div>
+        <div style="margin-top:12px"><label class="fl">DESCRIPCIÓN (opcional)</label><textarea class="fi" id="vac-desc" rows="2" placeholder="Detalle de la solicitud..."></textarea></div>
+      </div>
+      <div id="form-incapacidad" class="hidden">
+        <div class="fg">
+          <div><label class="fl">FECHA INICIO</label><input type="date" class="fi" id="inc-inicio" onchange="calcDiasInc()"></div>
+          <div><label class="fl">FECHA FIN</label><input type="date" class="fi" id="inc-fin" onchange="calcDiasInc()"></div>
+          <div><label class="fl">DÍAS</label><input type="number" class="fi" id="inc-dias" readonly style="background:#F8FAFC"></div>
+          <div><label class="fl">ENTIDAD EMISORA</label><input type="text" class="fi" id="inc-entidad" placeholder="Ej: CSS, Hospital San Miguel..."></div>
+          <div><label class="fl">N° DOCUMENTO</label><input type="text" class="fi" id="inc-doc" placeholder="Número del certificado"></div>
+          <div class="fg-full"><label class="fl">DESCRIPCIÓN (opcional)</label><textarea class="fi" id="inc-desc" rows="2" placeholder="Detalle de la incapacidad..."></textarea></div>
+        </div>
+      </div>
+      <div id="form-permiso" class="hidden">
+        <!-- Tipo de permiso definido por RRHH (solo informativo) -->
+        <div id="per-tipo-section" style="margin-bottom:14px;display:none">
+          <div class="section-title" style="margin-bottom:10px">Clasificación del permiso</div>
+          <div id="per-jerarquico-selects"></div>
+          <input type="hidden" id="per-subtipo">
+          <input type="hidden" id="per-nodo-id">
+          <div id="per-condiciones" class="hidden" style="padding:10px;background:#F0FDF4;border-radius:8px;border:1px solid #BBF7D0;font-size:12px;margin-top:8px;font-weight:600;color:#166534"></div>
+        </div>
+        <div class="fg">
+          <div><label class="fl">FECHA INICIO</label><input type="date" class="fi" id="per-inicio" onchange="calcTotalHorasPermiso()"></div>
+          <div><label class="fl">FECHA FIN</label><input type="date" class="fi" id="per-fin" onchange="calcTotalHorasPermiso()"></div>
+          <div>
+            <label class="fl">DÍAS</label>
+            <input type="number" class="fi" id="per-dias" placeholder="0" min="0" step="1" oninput="calcTotalHorasPermiso()">
+          </div>
+          <div>
+            <label class="fl">HORAS DEL PERMISO</label>
+            <input type="number" class="fi" id="per-horas" placeholder="0" min="0" max="23" step="0.5" oninput="calcTotalHorasPermiso()">
+          </div>
+          <div>
+            <label class="fl">TOTAL HORAS</label>
+            <input type="number" class="fi" id="per-total" readonly style="background:#F8FAFC;color:var(--blue);font-weight:600">
+          </div>
+          <div class="fg-full"><label class="fl">DESCRIPCIÓN</label><textarea class="fi" id="per-desc" rows="2" placeholder="Motivo del permiso..."></textarea></div>
+        </div>
+        <!-- Sección reposición multilínea -->
+        <div id="per-reposicion-section" class="hidden" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+          <div class="section-title" style="margin-bottom:6px">Reposición de tiempo</div>
+          <div class="alert alert-info" style="margin-bottom:12px">Indica en cuántas sesiones repondrás el tiempo. Puedes agregar múltiples líneas.</div>
+          <!-- Cabecera -->
+          <div style="display:grid;grid-template-columns:120px 1fr 90px 90px 70px 28px;gap:6px;padding-bottom:6px;border-bottom:1px solid var(--border);margin-bottom:6px">
+            <div class="fl" style="margin:0;font-size:9px">FECHA</div>
+            <div class="fl" style="margin:0;font-size:9px">TIPO HORARIO</div>
+            <div class="fl" style="margin:0;font-size:9px">DESDE</div>
+            <div class="fl" style="margin:0;font-size:9px">HASTA</div>
+            <div class="fl" style="margin:0;font-size:9px">HORAS</div>
+            <div></div>
+          </div>
+          <div id="rep-lineas-container"></div>
+          <button class="btn btn-ghost btn-sm" style="margin-top:8px;width:100%" onclick="addLineaReposicionEmp()">+ Agregar línea</button>
+          <!-- Totales -->
+          <div style="display:flex;justify-content:flex-end;gap:20px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);font-size:12px;flex-wrap:wrap">
+            <span style="color:var(--muted)">Total permiso: <strong id="rep-total-permiso" style="color:var(--text)">0h</strong></span>
+            <span style="color:var(--muted)">Horas repuestas: <strong id="rep-total-repuesto" style="color:var(--lime2)">0h</strong></span>
+            <span style="color:var(--muted)">Saldo pendiente: <strong id="rep-saldo-pendiente" style="color:var(--amber)">0h</strong></span>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:8px">
+        <label class="fl">NOTAS ADICIONALES (opcional)</label>
+        <textarea class="fi" id="notas-empleado" rows="2" placeholder="Cualquier información adicional..."></textarea>
+      </div>
+    </div>
+
+    <!-- Acciones -->
+    <div class="card no-print" style="margin-bottom:16px">
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-outline" onclick="imprimirSolicitud()" style="flex:1">🖨 Imprimir / guardar PDF</button>
+        <button class="btn btn-primary" id="btn-enviar" onclick="enviarSolicitud()" style="flex:2">Enviar solicitud al supervisor</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:8px;text-align:center">Al enviar, el supervisor recibirá un correo para revisar y aprobar tu solicitud.</div>
+      <div id="form-msg" style="margin-top:10px"></div>
+    </div>
+
+  </div><!-- /form-state -->
+
+  <!-- Área de impresión -->
+  <div class="print-area" id="print-area"></div>
+
+</div>
+
+<div class="footer">AENA · Smart Business Control</div>
+
+<script>
+const SUPABASE_URL='https://dqobxvvpzzngljwdalnq.supabase.co';
+const SUPABASE_KEY='sb_publishable_rCbSAjOlexErR9WBN-rfZA_8Tadpfa0';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+let solicitudData=null;
+let timerInterval=null;
+
+// ============================================================
+// INIT
+// ============================================================
+async function init(){
+  const params=new URLSearchParams(window.location.search);
+  const token=params.get('token');
+  if(!token){showError('Link inválido','No se encontró un token válido en la URL.');return;}
+
+  // Registrar apertura con IP pública (best effort)
+  let ip='';
+  try{const r=await fetch('https://api.ipify.org?format=json');const d=await r.json();ip=d.ip||'';}catch(e){}
+
+  // Buscar la solicitud por token
+  // Query principal
+  const {data,error}=await sb.from('solicitud_tokens')
+    .select('*')
+    .eq('token_empleado',token)
+    .single();
+
+  if(error||!data){showError('Link inválido','Este link no existe o ya fue eliminado.');return;}
+
+  // Fetch relacionados — múltiples intentos para compatibilidad móvil
+  const fetchConReintentos = async (tabla, campo, valor, columnas) => {
+    for(let intento=0; intento<3; intento++){
+      try{
+        const {data:d,error:e}=await sb.from(tabla).select(columnas).eq(campo,valor).maybeSingle();
+        if(!e&&d) return d;
+        await new Promise(r=>setTimeout(r,300*(intento+1)));
+      }catch(ex){}
+    }
+    return null;
+  };
+
+  const [colab, sup, cli] = await Promise.all([
+    data.colaborador_id ? fetchConReintentos('colaboradores','id',data.colaborador_id,'nombre,cedula,cargo') : null,
+    data.supervisor_id  ? fetchConReintentos('supervisores','id',data.supervisor_id,'nombre,email') : null,
+    data.cliente_id     ? fetchConReintentos('clientes','id',data.cliente_id,'nombre') : null,
+  ]);
+  if(colab) data.colaboradores=colab;
+  if(sup)   data.supervisores=sup;
+  if(cli)   data.clientes=cli;
+
+  // Verificar expiración
+  if(data.token_empleado_expira_at&&new Date(data.token_empleado_expira_at)<new Date()){
+    // Marcar como expirado
+    await sb.from('solicitud_tokens').update({estado:'expirado'}).eq('id',data.id);
+    showError('Link expirado','Este link tenía validez de 1 hora y ya expiró. Solicita a RRHH que genere un nuevo link.');
+    return;
+  }
+
+  // Verificar estados que no permiten llenar
+  if(['aprobado','rechazado'].includes(data.estado)){
+    showError(data.estado==='aprobado'?'Solicitud aprobada':'Solicitud rechazada',
+      data.estado==='aprobado'?'Esta solicitud ya fue aprobada y registrada.':'Esta solicitud fue rechazada. Contacta a RRHH para más información.');
+    return;
+  }
+  if(data.estado==='pendiente_supervisor'||data.estado==='modificado'){
+    document.getElementById('loading-state').classList.add('hidden');
+    document.getElementById('sent-state').classList.remove('hidden');
+    return;
+  }
+
+  solicitudData=data;
+
+  // Registrar apertura
+  const updateData={empleado_abrio_at:new Date().toISOString()};
+  if(ip)updateData.empleado_ip=ip;
+  if(!data.empleado_abrio_at){
+    await sb.from('solicitud_tokens').update(updateData).eq('id',data.id);
+  }
+
+  // Mostrar nombre empresa en topbar
+  if(data.clientes?.nombre){
+    document.getElementById('topbar-empresa').textContent=data.clientes.nombre;
+  }
+
+  // Llenar info de solicitud
+  renderInfoSolicitud(data);
+
+  // Mostrar formulario correcto
+  const tipo=data.tipo_movimiento;
+  if(tipo==='vacacion'){
+    document.getElementById('form-vacacion').classList.remove('hidden');
+    await cargarSaldosVacEmp(data.colaborador_id, data.cliente_id);
+    vacLineas=[];
+    renderLineasVacEmp();
+    addLineaVacEmp();
+  }
+  else if(tipo==='incapacidad')document.getElementById('form-incapacidad').classList.remove('hidden');
+  else if(tipo==='permiso'){
+    document.getElementById('form-permiso').classList.remove('hidden');
+    cargarTiposPermiso(data.cliente_id);
+  }
+
+  // Iniciar timer
+  iniciarTimer(new Date(data.token_empleado_expira_at));
+
+  document.getElementById('loading-state').classList.add('hidden');
+  document.getElementById('form-state').classList.remove('hidden');
+}
+
+function renderInfoSolicitud(data){
+  const TIPO_LABELS={vacacion:'🌴 Vacación',incapacidad:'🏥 Incapacidad',permiso:'📝 Permiso'};
+  const colab=data.colaboradores;
+  const sup=data.supervisores;
+  const cfg=data.datos_solicitud?.config_rrhh||null;
+  let extraRows='';
+  if(cfg){
+    if(cfg.nombre_tipo_permiso) extraRows+=`<div class="info-row"><span class="info-label">Tipo de permiso</span><span class="info-value" style="color:var(--blue);font-weight:700">${cfg.nombre_tipo_permiso}</span></div>`;
+    if(cfg.goce_salario) extraRows+=`<div class="info-row"><span class="info-label">Goce de salario</span><span class="info-value">${cfg.goce_salario}</span></div>`;
+    extraRows+=`<div class="info-row"><span class="info-label">Reposición de horas</span><span class="info-value">${cfg.reposicion?'✓ Sí — '+( cfg.tipo_reposicion||''):'✗ No aplica'}</span></div>`;
+  }
+  document.getElementById('info-solicitud').innerHTML=`
+    <div class="info-row"><span class="info-label">Colaborador</span><span class="info-value">${colab?.nombre||'—'}</span></div>
+    <div class="info-row"><span class="info-label">Cédula</span><span class="info-value">${colab?.cedula||'—'}</span></div>
+    <div class="info-row"><span class="info-label">Cargo</span><span class="info-value">${colab?.cargo||'—'}</span></div>
+    <div class="info-row"><span class="info-label">Tipo de movimiento</span><span class="info-value">${TIPO_LABELS[data.tipo_movimiento]||data.tipo_movimiento}</span></div>
+    <div class="info-row"><span class="info-label">Supervisor encargado</span><span class="info-value">${sup?.nombre||'—'}</span></div>
+    ${extraRows}
+  `;
+}
+
+let tiposPermisoTree=[];
+
+async function cargarSaldosVacEmp(colaboradorId, clienteId){
+  // Cargar movimientos de vacaciones del colaborador
+  const {data:movs}=await sb.from('movimientos_rrhh')
+    .select('tipo,dias,anio_ciclo,fecha_inicio,estado')
+    .eq('colaborador_id',colaboradorId)
+    .eq('tipo','vacacion')
+    .eq('estado','activo');
+  // Cargar datos del colaborador para calcular ciclos
+  const {data:colab}=await sb.from('colaboradores').select('fecha_ingreso').eq('id',colaboradorId).single();
+  if(!colab?.fecha_ingreso){saldosVac={};renderSaldosVac();return;}
+  // Calcular ciclos desde fecha ingreso
+  const hoy=new Date();hoy.setHours(0,0,0,0);
+  const ingreso=new Date(colab.fecha_ingreso+'T00:00:00');
+  saldosVac={};
+  let cicloInicio=new Date(ingreso);
+  let numCiclo=0;
+  while(cicloInicio<=hoy&&numCiclo<20){
+    numCiclo++;
+    const finAcum=new Date(cicloInicio);finAcum.setMonth(finAcum.getMonth()+11);finAcum.setDate(finAcum.getDate()-1);
+    const mesVac=new Date(finAcum);mesVac.setMonth(mesVac.getMonth()+1);
+    const finMesVac=new Date(mesVac.getFullYear(),mesVac.getMonth()+1,0);
+    const anioCiclo=mesVac.getFullYear();
+    let ganados=0;
+    if(hoy>=finAcum){ganados=30;}
+    else{const d=Math.max(0,(hoy-cicloInicio)/(1000*60*60*24));const t=(finAcum-cicloInicio)/(1000*60*60*24)+1;ganados=parseFloat(((d/t)*30).toFixed(2));}
+    const inicioCicloStr=cicloInicio.toISOString().split('T')[0];
+    const finCicloStr=finMesVac.toISOString().split('T')[0];
+    const tomados=(movs||[]).filter(m=>{
+      if(m.anio_ciclo)return parseInt(m.anio_ciclo)===anioCiclo;
+      return m.fecha_inicio&&m.fecha_inicio>=inicioCicloStr&&m.fecha_inicio<=finCicloStr;
+    }).reduce((a,m)=>a+parseFloat(m.dias||0),0);
+    const saldo=parseFloat(Math.max(0,ganados-tomados).toFixed(2));
+    if(saldo>0||ganados>0)saldosVac[anioCiclo]=saldo;
+    const sig=new Date(finMesVac);sig.setDate(sig.getDate()+1);
+    if(sig>hoy)break;
+    cicloInicio=sig;
+  }
+  renderSaldosVac();
+}
+
+async function cargarTiposPermiso(clienteId){
+  const {data}=await sb.from('tipos_permiso_config').select('*').eq('cliente_id',clienteId).eq('activo',true).order('nivel').order('orden');
+  tiposPermisoTree=data||[];
+  // Cargar tipos de horario para las líneas de reposición
+  await cargarTiposHorarioEmp(clienteId);
+  // Inicializar con una línea si reposición requerida
+  // Controlar bloque reposición según config de RRHH
+  const cfgRrhh=solicitudData?.datos_solicitud?.config_rrhh||null;
+  if(cfgRrhh && cfgRrhh.reposicion===true){
+    document.getElementById('per-reposicion-section')?.classList.remove('hidden');
+    repLineas=[];
+    renderLineasReposicion();
+    addLineaReposicionEmp(); // empezar con una línea vacía
+  } else {
+    document.getElementById('per-reposicion-section')?.classList.add('hidden');
+  }
+  if(tiposPermisoTree.length){
+    buildSelectorJerarquicoPublico('per-jerarquico-selects','per-subtipo','per-nodo-id');
+  } else {
+    // Fallback a clasificaciones_gasto planas
+    const {data:planas}=await sb.from('clasificaciones_gasto').select('nombre').eq('cliente_id',clienteId).eq('modulo','permiso').eq('activo',true);
+    if(planas&&planas.length){
+      const div=document.getElementById('per-jerarquico-selects');
+      if(div) div.innerHTML='<div><label class="fl">TIPO DE PERMISO</label><select class="fi" id="per-subtipo-sel" onchange="document.getElementById(&quot;per-subtipo&quot;).value=this.value"><option value="">Sin especificar</option>'+planas.map(t=>'<option value="'+t.nombre+'">'+t.nombre+'</option>').join('')+'</select></div>';
+    }
+  }
+}
+
+function buildSelectorJerarquicoPublico(containerId, hiddenNombreId, hiddenNodoId){
+  const container=document.getElementById(containerId);
+  if(!container) return;
+  container.innerHTML='';
+  const raices=tiposPermisoTree.filter(n=>!n.padre_id);
+  if(!raices.length) return;
+  agregarNivel(container, raices, 0, hiddenNombreId, hiddenNodoId);
+}
+
+function agregarNivel(container, nodos, nivel, hiddenNombreId, hiddenNodoId){
+  for(let i=nivel;i<10;i++){const el=document.getElementById('pub-sel-nivel-'+i);if(el)el.remove();}
+  const wrap=document.createElement('div');
+  wrap.id='pub-sel-nivel-'+nivel;
+  wrap.style.marginBottom='10px';
+  const labels=['TIPO DE PERMISO','SUBTIPO','CONDICIÓN','DETALLE','OPCIÓN'];
+  const lbl=labels[nivel]||('NIVEL '+(nivel+1));
+  wrap.innerHTML=`<label class="fl">${lbl}</label>
+    <select class="fi" id="pub-sel-select-${nivel}">
+      <option value="">Seleccionar...</option>
+      ${nodos.map(n=>`<option value="${n.id}">${n.nombre}</option>`).join('')}
+    </select>`;
+  container.appendChild(wrap);
+  document.getElementById('pub-sel-select-'+nivel).addEventListener('change',function(){
+    const nodoId=this.value;
+    for(let i=nivel+1;i<10;i++){const el=document.getElementById('pub-sel-nivel-'+i);if(el)el.remove();}
+    document.getElementById(hiddenNombreId).value='';
+    document.getElementById(hiddenNodoId).value='';
+    document.getElementById('per-condiciones').classList.add('hidden');
+    document.getElementById('per-reposicion-section').classList.add('hidden');
+    if(!nodoId) return;
+    const nodo=tiposPermisoTree.find(n=>n.id===nodoId);
+    if(!nodo) return;
+    const hijos=tiposPermisoTree.filter(n=>n.padre_id===nodoId);
+    if(hijos.length){
+      agregarNivel(container, hijos, nivel+1, hiddenNombreId, hiddenNodoId);
+    } else {
+      document.getElementById(hiddenNombreId).value=nodo.nombre;
+      document.getElementById(hiddenNodoId).value=nodoId;
+      // Mostrar condiciones
+      const partes=[];
+      if(nodo.goce_salario===true) partes.push('✓ Con goce de salario');
+      if(nodo.goce_salario===false) partes.push('✗ Sin goce de salario');
+      if(nodo.requiere_reposicion===true) partes.push('⟳ Requiere reposición de tiempo');
+      if(nodo.requiere_reposicion===false) partes.push('— Sin reposición requerida');
+      const condEl=document.getElementById('per-condiciones');
+      if(partes.length){condEl.textContent=partes.join(' · ');condEl.classList.remove('hidden');}
+      // Mostrar/ocultar reposición
+      if(nodo.requiere_reposicion===true){
+        document.getElementById('per-reposicion-section').classList.remove('hidden');
+      }
+    }
+  });
+}
+
+function calcHorasReposicion(){
+  const desde=document.getElementById('per-rep-desde').value;
+  const hasta=document.getElementById('per-rep-hasta').value;
+  if(!desde||!hasta) return;
+  const [dh,dm]=desde.split(':').map(Number);
+  const [hh,hm]=hasta.split(':').map(Number);
+  const diff=((hh*60+hm)-(dh*60+dm))/60;
+  document.getElementById('per-rep-horas').value=diff>0?diff.toFixed(1):'0';
+}
+
+// ============================================================
+// TIMER
+// ============================================================
+function iniciarTimer(expiraAt){
+  const totalMs=expiraAt-new Date(solicitudData.generado_at||Date.now());
+  function update(){
+    const now=new Date();
+    const remaining=expiraAt-now;
+    if(remaining<=0){
+      clearInterval(timerInterval);
+      document.getElementById('timer-text').textContent='Expirado';
+      document.getElementById('timer-fill').style.width='0%';
+      document.getElementById('btn-enviar').disabled=true;
+      return;
+    }
+    const mins=Math.floor(remaining/60000);
+    const secs=Math.floor((remaining%60000)/1000);
+    document.getElementById('timer-text').textContent=mins+'m '+secs.toString().padStart(2,'0')+'s';
+    const pct=Math.max(0,Math.min(100,(remaining/totalMs)*100));
+    const fill=document.getElementById('timer-fill');
+    fill.style.width=pct+'%';
+    fill.className='timer-fill'+(pct<20?' danger':pct<40?' warning':'');
+  }
+  update();
+  timerInterval=setInterval(update,1000);
+}
+
+// ============================================================
+// CÁLCULOS
+// ============================================================
+function calcDias(inicioId,finId,diasId){
+  const ini=document.getElementById(inicioId).value;
+  const fin=document.getElementById(finId).value;
+  if(ini&&fin){
+    const d=Math.round((new Date(fin)-new Date(ini))/(1000*60*60*24))+1;
+    document.getElementById(diasId).value=d>0?d:0;
+  }
+}
+// ── VACACIONES MULTILÍNEA ─────────────────────────────────
+let vacLineas=[];
+let saldosVac={}; // {anio: saldo_disponible}
+
+function renderSaldosVac(){
+  const wrap=document.getElementById('vac-saldos-tabla');
+  if(!wrap)return;
+  const anios=Object.keys(saldosVac).map(Number).sort((a,b)=>a-b);
+  if(!anios.length){wrap.innerHTML='<div style="font-size:12px;color:var(--muted)">Sin ciclos de vacaciones disponibles.</div>';return;}
+  wrap.innerHTML=anios.map(a=>{
+    const s=saldosVac[a];
+    const color=s<=0?'var(--red)':s<5?'var(--amber)':'var(--green)';
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:#F8FAFC;border-radius:8px;margin-bottom:4px;font-size:13px">'+
+      '<span style="font-weight:600">Ciclo '+a+'</span>'+
+      '<span style="font-weight:700;color:'+color+'">'+s.toFixed(1)+' días disponibles</span>'+
+    '</div>';
+  }).join('');
+}
+
+function addLineaVacEmp(){
+  const id='vac-'+Date.now();
+  // Sugerir el año más viejo con saldo disponible
+  const anioSugerido=Object.keys(saldosVac).map(Number).sort((a,b)=>a-b).find(a=>saldosVac[a]>0)||'';
+  vacLineas.push({id,anio:anioSugerido});
+  renderLineasVacEmp();
+}
+
+function removeLineaVacEmp(id){
+  vacLineas=vacLineas.filter(l=>l.id!==id);
+  renderLineasVacEmp();
+  actualizarTotalVac();
+}
+
+function renderLineasVacEmp(){
+  const c=document.getElementById('vac-lineas-container');
+  if(!c)return;
+  const aniosDisp=Object.keys(saldosVac).map(Number).sort((a,b)=>a-b);
+  const optsAnio=aniosDisp.map(a=>'<option value="'+a+'">'+a+'</option>').join('');
+  c.innerHTML=vacLineas.map(l=>`
+    <div id="wrap-${l.id}" style="display:grid;grid-template-columns:90px 120px 120px 80px 28px;gap:6px;margin-bottom:6px;align-items:center">
+      <select class="fi" id="vac-anio-${l.id}" style="font-size:12px;padding:7px 8px" onchange="validarLineaVac('${l.id}')">
+        <option value="">Año...</option>${optsAnio}
+      </select>
+      <input type="date" class="fi" id="vac-inicio-${l.id}" style="font-size:12px;padding:7px 8px" onchange="calcDiasLineaVac('${l.id}')">
+      <input type="date" class="fi" id="vac-fin-${l.id}" style="font-size:12px;padding:7px 8px" onchange="calcDiasLineaVac('${l.id}')">
+      <input type="number" class="fi" id="vac-dias-${l.id}" placeholder="0" min="0" step="0.5" style="font-size:12px;padding:7px 8px" oninput="validarLineaVac('${l.id}')">
+      <button onclick="removeLineaVacEmp('${l.id}')" style="width:24px;height:24px;border-radius:6px;border:none;background:#FEE2E2;color:var(--red);cursor:pointer;font-size:14px">×</button>
+    </div>
+    <div id="warn-${l.id}" style="font-size:11px;color:var(--red);margin-bottom:4px;display:none"></div>`).join('');
+  // Prellenar año sugerido
+  vacLineas.forEach(l=>{
+    const sel=document.getElementById('vac-anio-'+l.id);
+    if(sel&&l.anio)sel.value=l.anio;
+  });
+  if(!vacLineas.length){
+    c.innerHTML='<div style="font-size:12px;color:var(--muted);padding:8px 0;text-align:center">Usa "+ Agregar línea" para comenzar.</div>';
+  }
+}
+
+function calcDiasLineaVac(id){
+  const ini=document.getElementById('vac-inicio-'+id)?.value;
+  const fin=document.getElementById('vac-fin-'+id)?.value;
+  if(ini&&fin){
+    const d=Math.round((new Date(fin)-new Date(ini))/(1000*60*60*24))+1;
+    const el=document.getElementById('vac-dias-'+id);
+    if(el) el.value=d>0?d:0;
+  }
+  validarLineaVac(id);
+}
+
+function validarLineaVac(id){
+  const anio=parseInt(document.getElementById('vac-anio-'+id)?.value);
+  const dias=parseFloat(document.getElementById('vac-dias-'+id)?.value)||0;
+  const warnEl=document.getElementById('warn-'+id);
+  if(!warnEl)return true;
+
+  // Verificar que años anteriores estén agotados
+  if(anio){
+    const aniosAnteriores=Object.keys(saldosVac).map(Number).filter(a=>a<anio&&saldosVac[a]>0);
+    // Restar lo que ya se está tomando de años anteriores en otras líneas
+    const diasUsadosEnLineas={};
+    vacLineas.forEach(l=>{
+      if(l.id===id)return;
+      const a=parseInt(document.getElementById('vac-anio-'+l.id)?.value);
+      const d=parseFloat(document.getElementById('vac-dias-'+l.id)?.value)||0;
+      if(a)diasUsadosEnLineas[a]=(diasUsadosEnLineas[a]||0)+d;
+    });
+    const aniosConSaldoPendiente=aniosAnteriores.filter(a=>{
+      const saldoRestante=saldosVac[a]-(diasUsadosEnLineas[a]||0);
+      return saldoRestante>0.01;
+    });
+    if(aniosConSaldoPendiente.length){
+      warnEl.textContent='⚠ Debes agotar primero el ciclo '+aniosConSaldoPendiente[0]+' ('+saldosVac[aniosConSaldoPendiente[0]].toFixed(1)+' días disponibles)';
+      warnEl.style.display='block';
+      actualizarTotalVac();
+      return false;
+    }
+    // Verificar saldo disponible del año seleccionado
+    const saldoAnio=(saldosVac[anio]||0)-(diasUsadosEnLineas[anio]||0);
+    if(dias>saldoAnio+0.01){
+      warnEl.textContent='⚠ Excede el saldo disponible para el ciclo '+anio+' ('+saldoAnio.toFixed(1)+' días)';
+      warnEl.style.display='block';
+      actualizarTotalVac();
+      return false;
+    }
+  }
+  warnEl.style.display='none';
+  actualizarTotalVac();
+  return true;
+}
+
+function actualizarTotalVac(){
+  let total=0;
+  vacLineas.forEach(l=>{total+=parseFloat(document.getElementById('vac-dias-'+l.id)?.value)||0;});
+  const el=document.getElementById('vac-total-dias');
+  if(el)el.textContent=total.toFixed(1);
+}
+
+function getLineasVacEmp(){
+  return vacLineas.map(l=>({
+    anio_ciclo:document.getElementById('vac-anio-'+l.id)?.value||'',
+    fecha_inicio:document.getElementById('vac-inicio-'+l.id)?.value||'',
+    fecha_fin:document.getElementById('vac-fin-'+l.id)?.value||'',
+    dias:parseFloat(document.getElementById('vac-dias-'+l.id)?.value)||0
+  })).filter(l=>l.dias>0);
+}
+
+function calcDiasVacacion(){} // legacy stub
+function calcDiasInc(){calcDias('inc-inicio','inc-fin','inc-dias');}
+function calcTotalHorasPermiso(){
+  // Fechas calculan días solo si el campo está vacío (no sobreescribir lo que ingresó el empleado)
+  const ini=document.getElementById('per-inicio').value;
+  const fin=document.getElementById('per-fin').value;
+  const diasEl=document.getElementById('per-dias');
+  if(ini&&fin&&(!diasEl.value||diasEl.value==='0')){
+    const d=Math.round((new Date(fin)-new Date(ini))/(1000*60*60*24))+1;
+    diasEl.value=d>0?d:0;
+  }
+  const dias=parseFloat(document.getElementById('per-dias').value)||0;
+  const horas=parseFloat(document.getElementById('per-horas').value)||0;
+  const total=dias*8+horas;
+  document.getElementById('per-total').value=total>0?total:0;
+  actualizarSaldoReposicion();
+}
+
+// Líneas de reposición del empleado
+let repLineas=[];
+let tiposHorarioEmp=[];
+
+async function cargarTiposHorarioEmp(clienteId){
+  const {data}=await sb.from('clasificaciones_gasto').select('nombre').eq('cliente_id',clienteId).eq('modulo','horario').eq('activo',true);
+  tiposHorarioEmp=data||[];
+}
+
+function addLineaReposicionEmp(){
+  const id='rep-'+Date.now();
+  repLineas.push({id});
+  renderLineasReposicion();
+}
+
+function removeLineaReposicion(id){
+  repLineas=repLineas.filter(l=>l.id!==id);
+  renderLineasReposicion();
+  actualizarSaldoReposicion();
+}
+
+function renderLineasReposicion(){
+  const c=document.getElementById('rep-lineas-container');
+  if(!c)return;
+  const optsHorario=tiposHorarioEmp.length
+    ? tiposHorarioEmp.map(t=>'<option value="'+t.nombre+'">'+t.nombre+'</option>').join('')
+    : '<option value="Antes de entrada">Antes de entrada</option><option value="Después de salida">Después de salida</option><option value="Almuerzo">Almuerzo</option><option value="Sábado">Sábado</option>';
+  c.innerHTML=repLineas.map(l=>`
+    <div id="wrap-${l.id}" style="display:grid;grid-template-columns:120px 1fr 90px 90px 70px 28px;gap:6px;margin-bottom:6px;align-items:center">
+      <input type="date" class="fi" id="rep-fecha-${l.id}" style="font-size:12px;padding:7px 8px">
+      <select class="fi" id="rep-tipo-${l.id}" style="font-size:12px;padding:7px 8px">
+        <option value="">Tipo...</option>
+        ${optsHorario}
+      </select>
+      <input type="time" class="fi" id="rep-desde-${l.id}" style="font-size:12px;padding:7px 8px" onchange="calcHorasLinea('${l.id}')">
+      <input type="time" class="fi" id="rep-hasta-${l.id}" style="font-size:12px;padding:7px 8px" onchange="calcHorasLinea('${l.id}')">
+      <input type="number" class="fi" id="rep-horas-${l.id}" readonly style="background:#F8FAFC;font-size:12px;padding:7px 8px;font-weight:600;color:var(--blue)">
+      <button onclick="removeLineaReposicion('${l.id}')" style="width:24px;height:24px;border-radius:6px;border:none;background:#FEE2E2;color:var(--red);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center">×</button>
+    </div>`).join('');
+  if(!repLineas.length){
+    c.innerHTML='<div style="font-size:12px;color:var(--muted);padding:8px 0;text-align:center">Sin líneas. Usa "+ Agregar línea" para comenzar.</div>';
+  }
+}
+
+function calcHorasLinea(id){
+  const desde=document.getElementById('rep-desde-'+id)?.value;
+  const hasta=document.getElementById('rep-hasta-'+id)?.value;
+  if(!desde||!hasta)return;
+  const [dh,dm]=desde.split(':').map(Number);
+  const [hh,hm]=hasta.split(':').map(Number);
+  const diff=((hh*60+hm)-(dh*60+dm))/60;
+  const el=document.getElementById('rep-horas-'+id);
+  if(el) el.value=diff>0?parseFloat(diff.toFixed(1)):0;
+  actualizarSaldoReposicion();
+}
+
+function actualizarSaldoReposicion(){
+  const totalPermiso=parseFloat(document.getElementById('per-total')?.value)||0;
+  let totalRepuesto=0;
+  repLineas.forEach(l=>{
+    totalRepuesto+=parseFloat(document.getElementById('rep-horas-'+l.id)?.value)||0;
+  });
+  const saldo=totalPermiso-totalRepuesto;
+  const elTotal=document.getElementById('rep-total-permiso');
+  const elRepuesto=document.getElementById('rep-total-repuesto');
+  const elSaldo=document.getElementById('rep-saldo-pendiente');
+  if(elTotal) elTotal.textContent=totalPermiso.toFixed(1)+'h';
+  if(elRepuesto) elRepuesto.textContent=totalRepuesto.toFixed(1)+'h';
+  if(elSaldo){
+    elSaldo.textContent=saldo.toFixed(1)+'h';
+    elSaldo.style.color=saldo<=0?'var(--green)':saldo<totalPermiso?'var(--amber)':'var(--red)';
+  }
+}
+
+function getLineasReposicion(){
+  return repLineas.map(l=>({
+    fecha:document.getElementById('rep-fecha-'+l.id)?.value||'',
+    tipo_horario:document.getElementById('rep-tipo-'+l.id)?.value||'',
+    hora_desde:document.getElementById('rep-desde-'+l.id)?.value||'',
+    hora_hasta:document.getElementById('rep-hasta-'+l.id)?.value||'',
+    horas:parseFloat(document.getElementById('rep-horas-'+l.id)?.value)||0
+  })).filter(l=>l.fecha||l.hora_desde);
+}
+
+function calcHorasReposicion(){} // legacy stub
+
+// ============================================================
+// ENVIAR
+// ============================================================
+async function enviarSolicitud(){
+  if(!solicitudData)return;
+  const tipo=solicitudData.tipo_movimiento;
+  let datos={};
+
+  if(tipo==='vacacion'){
+    const lineas=getLineasVacEmp();
+    if(!lineas.length){showMsg('alert-warning','Agrega al menos una línea de vacaciones.');return;}
+    // Validar todas las líneas
+    let hayError=false;
+    for(const l of lineas){
+      if(!l.fecha_inicio||!l.fecha_fin||!l.anio_ciclo){showMsg('alert-warning','Completa todas las fechas y año ciclo en cada línea.');return;}
+    }
+    // Validar antigüedad — no puede tomar año reciente si hay saldo en años anteriores
+    const aniosConSaldo=Object.keys(saldosVac).map(Number).sort((a,b)=>a-b).filter(a=>saldosVac[a]>0.01);
+    const diasPorAnio={};
+    for(const l of lineas){
+      const a=parseInt(l.anio_ciclo);diasPorAnio[a]=(diasPorAnio[a]||0)+l.dias;
+    }
+    for(const anioUsado of Object.keys(diasPorAnio).map(Number).sort()){
+      const masViejos=aniosConSaldo.filter(a=>a<anioUsado);
+      for(const mv of masViejos){
+        const usadoEnMv=diasPorAnio[mv]||0;
+        if(usadoEnMv<saldosVac[mv]-0.01){
+          showMsg('alert-warning','Debes agotar primero el ciclo '+mv+' antes de tomar días del ciclo '+anioUsado+'.');return;
+        }
+      }
+    }
+    datos.lineas=lineas;
+    datos.total_dias=lineas.reduce((s,l)=>s+l.dias,0);
+    datos.descripcion=document.getElementById('vac-desc').value;
+  } else if(tipo==='incapacidad'){
+    datos.fecha_inicio=document.getElementById('inc-inicio').value;
+    datos.fecha_fin=document.getElementById('inc-fin').value;
+    datos.dias=document.getElementById('inc-dias').value;
+    datos.entidad_emisora=document.getElementById('inc-entidad').value;
+    datos.numero_documento=document.getElementById('inc-doc').value;
+    datos.descripcion=document.getElementById('inc-desc').value;
+    if(!datos.fecha_inicio||!datos.fecha_fin){showMsg('alert-warning','Completa las fechas.');return;}
+  } else if(tipo==='permiso'){
+    datos.fecha_inicio=document.getElementById('per-inicio').value;
+    datos.fecha_fin=document.getElementById('per-fin').value;
+    datos.dias=document.getElementById('per-dias').value;
+    datos.horas_extra=document.getElementById('per-horas').value;
+    datos.total_horas=document.getElementById('per-total').value;
+    datos.descripcion=document.getElementById('per-desc').value;
+    // Configuración definida por RRHH
+    const cfgRrhh=solicitudData?.datos_solicitud?.config_rrhh||null;
+    if(cfgRrhh) datos.config_rrhh=cfgRrhh;
+    if(!datos.fecha_inicio){showMsg('alert-warning','Completa la fecha de inicio.');return;}
+    const totalHoras=parseFloat(datos.total_horas)||0;
+    if(totalHoras<=0){showMsg('alert-warning','Indica los días u horas del permiso.');return;}
+    // Validar reposición si aplica
+    const secRep=document.getElementById('per-reposicion-section');
+    const repVisible=secRep&&!secRep.classList.contains('hidden');
+    if(repVisible){
+      const lineas=getLineasReposicion();
+      if(!lineas.length){showMsg('alert-warning','Agrega al menos una línea de reposición.');return;}
+      const totalRepuesto=lineas.reduce((s,l)=>s+l.horas,0);
+      if(Math.abs(totalRepuesto-totalHoras)>0.1){
+        showMsg('alert-warning','Las horas repuestas ('+totalRepuesto.toFixed(1)+'h) deben igualar el total del permiso ('+totalHoras.toFixed(1)+'h).');return;
+      }
+      datos.reposicion=lineas;
+    }
+  }
+
+  const notas=document.getElementById('notas-empleado').value.trim();
+  const btn=document.getElementById('btn-enviar');
+  btn.disabled=true;btn.textContent='Enviando...';
+
+  const {error}=await sb.from('solicitud_tokens').update({
+    datos_solicitud:datos,
+    estado:'pendiente_supervisor',
+    empleado_envio_at:new Date().toISOString(),
+    notas_empleado:notas||null
+  }).eq('id',solicitudData.id);
+
+  if(error){
+    showMsg('alert-error','Error al enviar: '+error.message);
+    btn.disabled=false;btn.textContent='Enviar solicitud al supervisor';
+    return;
+  }
+
+  // === NOTIFICACIÓN EMAIL AL SUPERVISOR VÍA RESEND ===
+  try{
+    const sup=solicitudData?.supervisores;
+    const colab=solicitudData?.colaboradores;
+    const TIPO_LABELS={vacacion:'Vacación',incapacidad:'Incapacidad',permiso:'Permiso'};
+    const tipoLabel=TIPO_LABELS[solicitudData.tipo_movimiento]||solicitudData.tipo_movimiento;
+    const linkSup=window.location.origin+'/supervisor.html?token='+solicitudData.token_supervisor;
+    const nombreEmp=colab?.nombre||'El colaborador';
+    const nombreSup=sup?.nombre||'Supervisor';
+    const emailSup=sup?.email;
+    const empresa=solicitudData?.clientes?.nombre||'';
+
+    if(emailSup){
+      const htmlEmail=`
+        <div style="font-family:Arial,sans-serif;max-width:580px;margin:0 auto;background:#F4F6F9;padding:32px 16px">
+          <div style="background:#0A1628;border-radius:14px 14px 0 0;padding:24px 32px;display:flex;align-items:center;gap:14px">
+            <div style="font-size:22px;font-weight:800;color:#fff;letter-spacing:3px">AENA</div>
+            <div style="font-size:10px;color:rgba(255,255,255,0.4);letter-spacing:2px;margin-top:2px">SMART BUSINESS CONTROL</div>
+          </div>
+          <div style="background:#fff;border-radius:0 0 14px 14px;padding:32px;border:1px solid #E2E8F0;border-top:none">
+            <p style="margin:0 0 8px;font-size:13px;color:#64748B">Hola, <strong>${nombreSup}</strong></p>
+            <h2 style="margin:0 0 24px;font-size:18px;color:#0A1628">Nueva solicitud de ${tipoLabel}</h2>
+            <div style="background:#F8FAFF;border:1px solid #DBEAFE;border-radius:10px;padding:16px 20px;margin-bottom:24px">
+              <table style="width:100%;font-size:13px;border-collapse:collapse">
+                <tr><td style="padding:5px 0;color:#64748B;width:140px">Colaborador</td><td style="font-weight:600;color:#0A1628">${nombreEmp}</td></tr>
+                ${colab?.cedula?`<tr><td style="padding:5px 0;color:#64748B">Cédula</td><td style="color:#0A1628">${colab.cedula}</td></tr>`:''}
+                <tr><td style="padding:5px 0;color:#64748B">Tipo</td><td style="color:#0A1628">${tipoLabel}</td></tr>
+                ${empresa?`<tr><td style="padding:5px 0;color:#64748B">Empresa</td><td style="color:#0A1628">${empresa}</td></tr>`:''}
+                ${notas?`<tr><td style="padding:5px 0;color:#64748B;vertical-align:top">Notas</td><td style="color:#0A1628">${notas}</td></tr>`:''}
+              </table>
+            </div>
+            <a href="${linkSup}" style="display:block;text-align:center;background:#0066FF;color:#fff;text-decoration:none;padding:14px 24px;border-radius:10px;font-weight:700;font-size:14px;letter-spacing:.3px">
+              Ver y procesar solicitud →
+            </a>
+            <p style="margin:20px 0 0;font-size:11px;color:#94A3B8;text-align:center">
+              Este enlace es de uso único y expirará una vez que tomes acción.<br>
+              Si no esperabas este correo, ignóralo.
+            </p>
+          </div>
+          <p style="text-align:center;font-size:10px;color:#94A3B8;margin-top:16px;letter-spacing:1px">AENA · SMART BUSINESS CONTROL</p>
+        </div>`;
+
+      await fetch('https://api.resend.com/emails',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer re_i95PP2z5_BRLB9Yxsp1p3Z4FVT9oemJpd'},
+        body:JSON.stringify({
+          from:'AENA Sistema <onboarding@resend.dev>',
+          to:[emailSup],
+          subject:`[AENA] Nueva solicitud de ${tipoLabel} — ${nombreEmp}`,
+          html:htmlEmail
+        })
+      });
+      // No bloqueamos el flujo si el email falla — la solicitud ya quedó guardada
+    }
+  } catch(emailErr){
+    console.warn('Email no enviado:',emailErr);
+  }
+  // === FIN NOTIFICACIÓN ===
+
+  clearInterval(timerInterval);
+  document.getElementById('form-state').classList.add('hidden');
+  document.getElementById('sent-state').classList.remove('hidden');
+}
+
+// ============================================================
+// IMPRIMIR
+// ============================================================
+function imprimirSolicitud(){
+  const tipo=solicitudData?.tipo_movimiento||'';
+  const colab=solicitudData?.colaboradores;
+  const sup=solicitudData?.supervisores;
+  const TIPO_LABELS={vacacion:'Vacación',incapacidad:'Incapacidad',permiso:'Permiso'};
+  let detalle='';
+  if(tipo==='vacacion'){
+    detalle=`<tr><td>Fecha inicio</td><td>${document.getElementById('vac-inicio').value||'—'}</td></tr>
+             <tr><td>Fecha fin</td><td>${document.getElementById('vac-fin').value||'—'}</td></tr>
+             <tr><td>Días</td><td>${document.getElementById('vac-dias').value||'—'}</td></tr>
+             <tr><td>Año ciclo</td><td>${document.getElementById('vac-ciclo').value||'—'}</td></tr>`;
+  } else if(tipo==='incapacidad'){
+    detalle=`<tr><td>Fecha inicio</td><td>${document.getElementById('inc-inicio').value||'—'}</td></tr>
+             <tr><td>Fecha fin</td><td>${document.getElementById('inc-fin').value||'—'}</td></tr>
+             <tr><td>Días</td><td>${document.getElementById('inc-dias').value||'—'}</td></tr>
+             <tr><td>Entidad emisora</td><td>${document.getElementById('inc-entidad').value||'—'}</td></tr>
+             <tr><td>N° documento</td><td>${document.getElementById('inc-doc').value||'—'}</td></tr>`;
+  } else if(tipo==='permiso'){
+    detalle=`<tr><td>Fecha inicio</td><td>${document.getElementById('per-inicio').value||'—'}</td></tr>
+             <tr><td>Fecha fin</td><td>${document.getElementById('per-fin').value||'—'}</td></tr>
+             <tr><td>Días</td><td>${document.getElementById('per-dias').value||'—'}</td></tr>
+             <tr><td>Horas adicionales</td><td>${document.getElementById('per-horas').value||'0'}</td></tr>
+             <tr><td>Total horas</td><td>${document.getElementById('per-total').value||'—'}</td></tr>
+             <tr><td>Subtipo</td><td>${document.getElementById('per-subtipo').value||'—'}</td></tr>`;
+  }
+  const notas=document.getElementById('notas-empleado').value;
+  document.getElementById('print-area').innerHTML=`
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:12px;border-bottom:2px solid #0A1628;margin-bottom:20px">
+        <div>
+          <div style="font-size:22px;font-weight:800;color:#0A1628;letter-spacing:2px">AENA</div>
+          <div style="font-size:10px;color:#6B7A99;letter-spacing:2px">SMART BUSINESS CONTROL</div>
+        </div>
+        <div style="text-align:right;font-size:11px;color:#6B7A99">
+          <div>${solicitudData?.clientes?.nombre||''}</div>
+          <div>Fecha: ${new Date().toLocaleDateString('es-PA',{day:'2-digit',month:'2-digit',year:'numeric'})}</div>
+        </div>
+      </div>
+      <div style="font-size:18px;font-weight:700;color:#0A1628;margin-bottom:20px;text-align:center;text-transform:uppercase">
+        Solicitud de ${TIPO_LABELS[tipo]||tipo}
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px">
+        <tr style="background:#F0F4FA"><td colspan="2" style="padding:8px 12px;font-weight:700;text-transform:uppercase;font-size:11px;letter-spacing:.5px">Datos del colaborador</td></tr>
+        <tr><td style="padding:7px 12px;color:#6B7A99;width:40%">Nombre</td><td style="padding:7px 12px;font-weight:600">${colab?.nombre||'—'}</td></tr>
+        <tr style="background:#F8FAFC"><td style="padding:7px 12px;color:#6B7A99">Cédula</td><td style="padding:7px 12px;font-weight:600">${colab?.cedula||'—'}</td></tr>
+        <tr><td style="padding:7px 12px;color:#6B7A99">Cargo</td><td style="padding:7px 12px">${colab?.cargo||'—'}</td></tr>
+        <tr style="background:#F8FAFC"><td style="padding:7px 12px;color:#6B7A99">Supervisor</td><td style="padding:7px 12px">${sup?.nombre||'—'}</td></tr>
+      </table>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px">
+        <tr style="background:#0A1628;color:#fff"><td colspan="2" style="padding:8px 12px;font-weight:700;text-transform:uppercase;font-size:11px;letter-spacing:.5px">Detalle de la solicitud</td></tr>
+        ${detalle}
+        ${notas?'<tr><td style="padding:7px 12px;color:#6B7A99;vertical-align:top">Notas</td><td style="padding:7px 12px">'+notas+'</td></tr>':''}
+      </table>
+      <div style="margin-top:60px;display:grid;grid-template-columns:1fr 1fr;gap:40px">
+        <div style="text-align:center">
+          <div style="border-top:1.5px solid #0A1628;padding-top:8px;font-size:12px;color:#6B7A99">Firma del colaborador</div>
+          <div style="font-size:11px;margin-top:4px">${colab?.nombre||''}</div>
+        </div>
+        <div style="text-align:center">
+          <div style="border-top:1.5px solid #0A1628;padding-top:8px;font-size:12px;color:#6B7A99">Firma del supervisor</div>
+          <div style="font-size:11px;margin-top:4px">${sup?.nombre||''}</div>
+        </div>
+      </div>
+      <div style="margin-top:40px;text-align:center;font-size:10px;color:#6B7A99;border-top:1px solid #DDE3F0;padding-top:10px">
+        AENA Smart Business Control · Documento generado el ${new Date().toLocaleString('es-PA')}
+      </div>
+    </div>`;
+  window.print();
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+function showError(title,msg){
+  document.getElementById('loading-state').classList.add('hidden');
+  document.getElementById('error-title').textContent=title;
+  document.getElementById('error-msg').textContent=msg;
+  document.getElementById('error-state').classList.remove('hidden');
+}
+
+function showMsg(cls,msg){
+  const el=document.getElementById('form-msg');
+  el.innerHTML='<div class="alert '+cls+'">'+msg+'</div>';
+}
+
+init();
+</script>
+</body>
+</html>

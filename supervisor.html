@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AENA — Aprobación de Solicitud</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#0A1628;--navy2:#0D1E38;
+  --blue:#0066FF;--blue2:#0052CC;
+  --lime:#7FD84A;
+  --bg:#F0F4FA;--white:#fff;
+  --text:#1A2540;--muted:#6B7A99;--border:#DDE3F0;
+  --red:#EF4444;--amber:#F59E0B;--green:#22C55E;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+.topbar{background:var(--navy);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between}
+.topbar-logo{display:flex;align-items:center;gap:10px}
+.logo-diamond{width:28px;height:28px;background:linear-gradient(135deg,var(--blue),var(--lime));border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:12px;color:#fff}
+.logo-text{font-family:'Syne',sans-serif;font-weight:800;font-size:16px;color:#fff;letter-spacing:1px}
+.logo-sub{font-size:9px;color:rgba(255,255,255,.5);letter-spacing:2px;font-weight:400;text-transform:uppercase}
+.container{max-width:640px;width:100%;margin:0 auto;padding:32px 16px;flex:1}
+.card{background:#fff;border-radius:16px;box-shadow:0 1px 3px rgba(10,22,40,.08),0 4px 16px rgba(10,22,40,.06);padding:24px;margin-bottom:16px}
+.section-title{font-family:'Syne',sans-serif;font-weight:700;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--navy);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.fl{display:block;font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+.fi{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);background:#fff;transition:border-color .15s;outline:none}
+.fi:focus{border-color:var(--blue)}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.fg-full{grid-column:1/-1}
+.btn{padding:10px 20px;border-radius:8px;font-family:'Syne',sans-serif;font-weight:700;font-size:13px;cursor:pointer;border:none;letter-spacing:.3px;transition:all .15s}
+.btn-primary{background:var(--blue);color:#fff}
+.btn-primary:hover{background:var(--blue2)}
+.btn-success{background:#16A34A;color:#fff}
+.btn-danger{background:var(--red);color:#fff}
+.btn-amber{background:var(--amber);color:#fff}
+.btn-outline{background:transparent;color:var(--navy);border:1.5px solid var(--navy)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:.5px solid var(--border);font-size:13px}
+.info-row:last-child{border-bottom:none}
+.info-label{color:var(--muted);font-size:12px}
+.info-value{font-weight:600}
+.alert{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px}
+.alert-info{background:#EFF6FF;color:#1D4ED8;border:1px solid #BFDBFE}
+.alert-warning{background:#FFFBEB;color:#92400E;border:1px solid #FDE68A}
+.alert-success{background:#F0FDF4;color:#166534;border:1px solid #BBF7D0}
+.alert-error{background:#FEF2F2;color:#991B1B;border:1px solid #FECACA}
+.tag{font-size:11px;padding:3px 10px;border-radius:10px;font-weight:700;display:inline-block}
+.hidden{display:none!important}
+#loading-state{text-align:center;padding:60px 20px}
+.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.footer{text-align:center;padding:20px;font-size:11px;color:var(--muted);font-family:'Syne',sans-serif;letter-spacing:1px}
+.action-panel{background:linear-gradient(135deg,#F8FAFC,#EFF6FF);border:1.5px solid #BFDBFE;border-radius:12px;padding:20px}
+.diff-field{background:#FFF9C4;border:1px solid #FDE68A;border-radius:6px;padding:4px 8px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">
+    <div class="logo-diamond">A</div>
+    <div>
+      <div class="logo-text">AENA</div>
+      <div class="logo-sub">Smart Business Control</div>
+    </div>
+  </div>
+  <div id="topbar-empresa" style="font-size:12px;color:rgba(255,255,255,.6);font-family:'Syne',sans-serif"></div>
+</div>
+
+<div class="container">
+
+  <!-- Cargando -->
+  <div id="loading-state">
+    <div class="spinner"></div>
+    <div style="color:var(--muted);font-size:14px">Cargando solicitud...</div>
+  </div>
+
+  <!-- Error -->
+  <div id="error-state" class="card hidden" style="text-align:center;padding:40px">
+    <div style="font-size:48px;margin-bottom:16px">🔒</div>
+    <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:22px;margin-bottom:8px" id="error-title">Sin acceso</div>
+    <div style="color:var(--muted);font-size:14px" id="error-msg">No tienes acceso a esta solicitud.</div>
+  </div>
+
+  <!-- Completado -->
+  <div id="done-state" class="card hidden" style="text-align:center;padding:40px">
+    <div style="font-size:48px;margin-bottom:16px" id="done-icon">✅</div>
+    <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:22px;margin-bottom:8px" id="done-title">Acción registrada</div>
+    <div style="color:var(--muted);font-size:14px" id="done-msg">Tu decisión fue guardada correctamente.</div>
+  </div>
+
+  <!-- Panel principal -->
+  <div id="main-state" class="hidden">
+
+    <!-- Header -->
+    <div class="card" style="background:var(--navy);color:#fff;padding:20px 24px">
+      <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:16px;margin-bottom:4px">Solicitud pendiente de aprobación</div>
+      <div style="font-size:12px;opacity:.7">Revisa los detalles y toma una decisión. Esta acción quedará registrada en la bitácora.</div>
+    </div>
+
+    <!-- Info colaborador -->
+    <div class="card">
+      <div class="section-title">Datos del colaborador</div>
+      <div id="info-colaborador"></div>
+    </div>
+
+    <!-- Datos de la solicitud -->
+    <div class="card">
+      <div class="section-title">Datos de la solicitud</div>
+      <div id="info-datos-solicitud"></div>
+    </div>
+
+    <!-- Panel de decisión -->
+    <div id="panel-decision" class="card">
+      <div class="section-title">Tu decisión</div>
+
+      <!-- Tabs de acción -->
+      <div style="display:flex;gap:0;border-radius:10px;overflow:hidden;border:1.5px solid var(--border);margin-bottom:16px">
+        <button class="tab-btn active" id="tab-aprobar" onclick="setTabDecision('aprobar')" style="flex:1;padding:10px;background:var(--navy);color:#fff;border:none;cursor:pointer;font-family:'Syne',sans-serif;font-weight:700;font-size:12px;transition:all .15s">✓ Aprobar</button>
+        <button class="tab-btn" id="tab-modificar" onclick="setTabDecision('modificar')" style="flex:1;padding:10px;background:#fff;color:var(--navy);border:none;cursor:pointer;font-family:'Syne',sans-serif;font-weight:700;font-size:12px;transition:all .15s">✏ Modificar</button>
+        <button class="tab-btn" id="tab-rechazar" onclick="setTabDecision('rechazar')" style="flex:1;padding:10px;background:#fff;color:var(--navy);border:none;cursor:pointer;font-family:'Syne',sans-serif;font-weight:700;font-size:12px;transition:all .15s">✗ Rechazar</button>
+      </div>
+
+      <!-- Panel aprobar -->
+      <div id="panel-aprobar">
+        <div class="alert alert-info">Al aprobar, la solicitud pasará a RRHH para el registro final en el sistema.</div>
+        <div><label class="fl">NOTAS (opcional)</label><textarea class="fi" id="sup-notas-aprobar" rows="2" placeholder="Comentario para el registro..."></textarea></div>
+        <div style="margin-top:14px">
+          <button class="btn btn-success" style="width:100%" onclick="tomarDecision('aprobar')">✓ Confirmar aprobación</button>
+        </div>
+      </div>
+
+      <!-- Panel modificar -->
+      <div id="panel-modificar" class="hidden">
+        <div class="alert alert-warning">Modifica los datos que consideres incorrectos. El colaborador recibirá notificación y deberá aceptar o rechazar los cambios.</div>
+        <div id="form-modificar-vacacion" class="hidden">
+          <div class="fg">
+            <div><label class="fl">FECHA INICIO</label><input type="date" class="fi" id="mod-vac-inicio" onchange="calcModDias()"></div>
+            <div><label class="fl">FECHA FIN</label><input type="date" class="fi" id="mod-vac-fin" onchange="calcModDias()"></div>
+            <div><label class="fl">DÍAS</label><input type="number" class="fi" id="mod-vac-dias" readonly style="background:#F8FAFC"></div>
+            <div><label class="fl">AÑO CICLO</label><input type="number" class="fi" id="mod-vac-ciclo" min="2020" max="2030"></div>
+          </div>
+        </div>
+        <div id="form-modificar-incapacidad" class="hidden">
+          <div class="fg">
+            <div><label class="fl">FECHA INICIO</label><input type="date" class="fi" id="mod-inc-inicio" onchange="calcModDias()"></div>
+            <div><label class="fl">FECHA FIN</label><input type="date" class="fi" id="mod-inc-fin" onchange="calcModDias()"></div>
+            <div><label class="fl">DÍAS</label><input type="number" class="fi" id="mod-inc-dias" readonly style="background:#F8FAFC"></div>
+            <div><label class="fl">ENTIDAD EMISORA</label><input type="text" class="fi" id="mod-inc-entidad"></div>
+            <div><label class="fl">N° DOCUMENTO</label><input type="text" class="fi" id="mod-inc-doc"></div>
+          </div>
+        </div>
+        <div id="form-modificar-permiso" class="hidden">
+          <div class="fg">
+            <div><label class="fl">FECHA INICIO</label><input type="date" class="fi" id="mod-per-inicio" onchange="calcModDias()"></div>
+            <div><label class="fl">FECHA FIN</label><input type="date" class="fi" id="mod-per-fin" onchange="calcModDias()"></div>
+            <div><label class="fl">DÍAS</label><input type="number" class="fi" id="mod-per-dias" readonly style="background:#F8FAFC"></div>
+            <div><label class="fl">HORAS ADICIONALES</label><input type="number" class="fi" id="mod-per-horas" value="0" min="0" max="7" onchange="calcModTotal()"></div>
+            <div><label class="fl">TOTAL HORAS</label><input type="number" class="fi" id="mod-per-total" readonly style="background:#F8FAFC"></div>
+          </div>
+        </div>
+        <div><label class="fl">NOTAS PARA EL COLABORADOR</label><textarea class="fi" id="sup-notas-modificar" rows="2" placeholder="Explica el motivo de la modificación..."></textarea></div>
+        <div style="margin-top:14px">
+          <button class="btn btn-amber" style="width:100%" onclick="tomarDecision('modificar')">✏ Enviar modificación al colaborador</button>
+        </div>
+      </div>
+
+      <!-- Panel rechazar -->
+      <div id="panel-rechazar" class="hidden">
+        <div class="alert" style="background:#FEF2F2;color:#991B1B;border-color:#FECACA">Al rechazar, se notificará al colaborador y a RRHH. Esta acción quedará registrada.</div>
+        <div><label class="fl">MOTIVO DEL RECHAZO</label><textarea class="fi" id="sup-notas-rechazar" rows="3" placeholder="Indica el motivo para el registro y notificación al colaborador..."></textarea></div>
+        <div style="margin-top:14px">
+          <button class="btn btn-danger" style="width:100%" onclick="tomarDecision('rechazar')">✗ Confirmar rechazo</button>
+        </div>
+      </div>
+
+      <div id="decision-msg" style="margin-top:12px"></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="footer">AENA · Smart Business Control</div>
+
+<script>
+const SUPABASE_URL='https://dqobxvvpzzngljwdalnq.supabase.co';
+const SUPABASE_KEY='sb_publishable_rCbSAjOlexErR9WBN-rfZA_8Tadpfa0';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+let solicitudData=null;
+const TIPO_LABELS={vacacion:'🌴 Vacación',incapacidad:'🏥 Incapacidad',permiso:'📝 Permiso'};
+
+// ============================================================
+// INIT
+// ============================================================
+async function init(){
+  const params=new URLSearchParams(window.location.search);
+  const token=params.get('token');
+  if(!token){showError('Sin acceso','No se encontró token.');return;}
+
+  let ip='';
+  try{const r=await fetch('https://api.ipify.org?format=json');const d=await r.json();ip=d.ip||'';}catch(e){}
+
+  const {data,error}=await sb.from('solicitud_tokens')
+    .select('*')
+    .eq('token_supervisor',token)
+    .single();
+
+  if(error||!data){showError('Sin acceso','Esta solicitud no existe o el link es inválido.');return;}
+
+  // Fetch relacionados separados (fix mobile)
+  if(data.colaborador_id){
+    const {data:c}=await sb.from('colaboradores').select('nombre,cedula,cargo,fecha_ingreso').eq('id',data.colaborador_id).single();
+    if(c) data.colaboradores=c;
+  }
+  if(data.supervisor_id){
+    const {data:s}=await sb.from('supervisores').select('nombre,email').eq('id',data.supervisor_id).single();
+    if(s) data.supervisores=s;
+  }
+  if(data.cliente_id){
+    const {data:cl}=await sb.from('clientes').select('nombre').eq('id',data.cliente_id).single();
+    if(cl) data.clientes=cl;
+  }
+
+  // Bloquear link si ya fue procesado
+  if(['aprobado','rechazado','expirado'].includes(data.estado)){
+    const labels={aprobado:'✅ Solicitud ya aprobada',rechazado:'❌ Solicitud ya rechazada',expirado:'⏱ Solicitud expirada'};
+    const msgs={aprobado:'Esta solicitud ya fue aprobada y registrada en el sistema. El link no está disponible.',rechazado:'Esta solicitud ya fue rechazada. El link no está disponible.',expirado:'Esta solicitud expiró sin acción.'};
+    showDone(labels[data.estado]||data.estado, msgs[data.estado]||'');
+    return;
+  }
+
+  // Si el empleado todavía no ha llenado
+  if(data.estado==='pendiente_empleado'||data.estado==='borrador'){
+    showError('Solicitud pendiente','El colaborador aún no ha completado su parte. Recibirás un correo cuando lo haga.');return;
+  }
+
+  solicitudData=data;
+
+  // Registrar apertura del supervisor
+  const updateData={supervisor_abrio_at:new Date().toISOString()};
+  if(ip)updateData.supervisor_ip=ip;
+  if(!data.supervisor_abrio_at){
+    await sb.from('solicitud_tokens').update(updateData).eq('id',data.id);
+  }
+
+  if(data.clientes?.nombre)document.getElementById('topbar-empresa').textContent=data.clientes.nombre;
+
+  renderInfoColaborador(data);
+  renderDatosSolicitud(data);
+  prellenarModificacion(data);
+
+  // Mostrar formulario de modificación según tipo
+  const tipo=data.tipo_movimiento;
+  document.getElementById('form-modificar-'+tipo)?.classList.remove('hidden');
+
+  document.getElementById('loading-state').classList.add('hidden');
+  document.getElementById('main-state').classList.remove('hidden');
+}
+
+function renderInfoColaborador(data){
+  const c=data.colaboradores;
+  const s=data.supervisores;
+  document.getElementById('info-colaborador').innerHTML=`
+    <div class="info-row"><span class="info-label">Colaborador</span><span class="info-value">${c?.nombre||'—'}</span></div>
+    <div class="info-row"><span class="info-label">Cédula</span><span class="info-value">${c?.cedula||'—'}</span></div>
+    <div class="info-row"><span class="info-label">Cargo</span><span class="info-value">${c?.cargo||'—'}</span></div>
+    <div class="info-row"><span class="info-label">Tipo de movimiento</span><span class="info-value">${TIPO_LABELS[data.tipo_movimiento]||data.tipo_movimiento}</span></div>
+    <div class="info-row"><span class="info-label">Supervisor asignado</span><span class="info-value">${s?.nombre||'—'}</span></div>
+    <div class="info-row"><span class="info-label">Enviado por el colaborador</span><span class="info-value">${data.empleado_envio_at?new Date(data.empleado_envio_at).toLocaleString('es-PA',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—'}</span></div>
+  `;
+}
+
+function renderDatosSolicitud(data){
+  const d=data.datos_solicitud;
+  const tipo=data.tipo_movimiento;
+  const el=document.getElementById('info-datos-solicitud');
+  if(!d){el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:10px 0">El colaborador no ha completado el formulario aun.</div>';return;}
+  let html='';
+  if(tipo==='permiso'){
+    const cfg=d.config_rrhh||{};
+    html+='<div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:14px;margin-bottom:14px"><div style="font-size:11px;font-weight:700;color:#1D4ED8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Condiciones RRHH</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px"><div><span style="color:var(--muted)">Tipo:</span> <strong>'+(cfg.nombre_tipo_permiso||'—')+'</strong></div><div><span style="color:var(--muted)">Goce:</span> <strong>'+(cfg.goce_salario||'—')+'</strong></div><div><span style="color:var(--muted)">Reposicion:</span> <strong>'+(cfg.reposicion?'Con reposicion':'Sin reposicion')+'</strong></div></div></div>';
+    html+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;font-size:13px"><div style="background:#F8FAFC;border-radius:8px;padding:10px;text-align:center"><div style="color:var(--muted);font-size:10px;text-transform:uppercase;margin-bottom:4px">Fecha inicio</div><div style="font-weight:700">'+(d.fecha_inicio||'—')+'</div></div><div style="background:#F8FAFC;border-radius:8px;padding:10px;text-align:center"><div style="color:var(--muted);font-size:10px;text-transform:uppercase;margin-bottom:4px">Fecha fin</div><div style="font-weight:700">'+(d.fecha_fin||'—')+'</div></div><div style="background:#EFF6FF;border-radius:8px;padding:10px;text-align:center"><div style="color:var(--muted);font-size:10px;text-transform:uppercase;margin-bottom:4px">Total horas</div><div style="font-weight:700;color:var(--blue)">'+(d.total_horas||'0')+'h</div></div></div>';
+    if(d.descripcion)html+='<div style="font-size:13px;margin-bottom:12px"><span style="color:var(--muted)">Descripcion:</span> '+d.descripcion+'</div>';
+    if(d.reposicion&&d.reposicion.length){
+      html+='<div style="margin-top:4px"><div style="font-size:11px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Reposicion de tiempo</div><div style="display:grid;grid-template-columns:100px 1fr 80px 80px 60px;gap:6px;padding-bottom:6px;border-bottom:1px solid var(--border);margin-bottom:4px;font-size:10px;font-weight:700;color:var(--muted)"><div>FECHA</div><div>TIPO</div><div>DESDE</div><div>HASTA</div><div>HORAS</div></div>';
+      d.reposicion.forEach(function(r){html+='<div style="display:grid;grid-template-columns:100px 1fr 80px 80px 60px;gap:6px;padding:6px 0;border-bottom:.5px solid var(--border);font-size:12px"><div>'+(r.fecha||'—')+'</div><div style="color:var(--muted)">'+(r.tipo_horario||'—')+'</div><div>'+(r.hora_desde||'—')+'</div><div>'+(r.hora_hasta||'—')+'</div><div style="font-weight:700;color:var(--blue)">'+(r.horas||0)+'h</div></div>';});
+      const totalRep=d.reposicion.reduce(function(s,r){return s+(parseFloat(r.horas)||0);},0);
+      html+='<div style="text-align:right;margin-top:8px;font-size:12px;font-weight:700;color:var(--blue)">Total repuesto: '+totalRep.toFixed(1)+'h</div></div>';
+    }
+  } else if(tipo==='vacacion'){
+    if(d.lineas&&d.lineas.length){
+      html+='<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Dias solicitados</div><div style="display:grid;grid-template-columns:80px 110px 110px 80px;gap:6px;padding-bottom:6px;border-bottom:1px solid var(--border);margin-bottom:4px;font-size:10px;font-weight:700;color:var(--muted)"><div>AÑO</div><div>INICIO</div><div>FIN</div><div>DIAS</div></div>';
+      d.lineas.forEach(function(l){html+='<div style="display:grid;grid-template-columns:80px 110px 110px 80px;gap:6px;padding:6px 0;border-bottom:.5px solid var(--border);font-size:12px"><div style="font-weight:700;color:var(--blue)">'+(l.anio_ciclo||'—')+'</div><div>'+(l.fecha_inicio||'—')+'</div><div>'+(l.fecha_fin||'—')+'</div><div style="font-weight:700">'+(l.dias||0)+' dias</div></div>';});
+      const totalDias=d.total_dias||d.lineas.reduce(function(s,l){return s+(parseFloat(l.dias)||0);},0);
+      html+='<div style="text-align:right;margin-top:8px;font-size:13px;font-weight:700;color:var(--navy)">Total: '+totalDias.toFixed(1)+' dias</div></div>';
+    } else {
+      html+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;font-size:13px"><div style="background:#F8FAFC;border-radius:8px;padding:10px;text-align:center"><div style="color:var(--muted);font-size:10px;text-transform:uppercase;margin-bottom:4px">Fecha inicio</div><div style="font-weight:700">'+(d.fecha_inicio||'—')+'</div></div><div style="background:#F8FAFC;border-radius:8px;padding:10px;text-align:center"><div style="color:var(--muted);font-size:10px;text-transform:uppercase;margin-bottom:4px">Fecha fin</div><div style="font-weight:700">'+(d.fecha_fin||'—')+'</div></div><div style="background:#F0FDF4;border-radius:8px;padding:10px;text-align:center"><div style="color:var(--muted);font-size:10px;text-transform:uppercase;margin-bottom:4px">Dias</div><div style="font-weight:700;color:var(--green)">'+(d.dias||'—')+'</div></div></div>';
+    }
+    if(d.descripcion)html+='<div style="font-size:13px;margin-bottom:12px"><span style="color:var(--muted)">Descripcion:</span> '+d.descripcion+'</div>';
+  } else if(tipo==='incapacidad'){
+    html+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;font-size:13px"><div style="background:#F8FAFC;border-radius:8px;padding:10px;text-align:center"><div style="color:var(--muted);font-size:10px;text-transform:uppercase;margin-bottom:4px">Fecha inicio</div><div style="font-weight:700">'+(d.fecha_inicio||'—')+'</div></div><div style="background:#F8FAFC;border-radius:8px;padding:10px;text-align:center"><div style="color:var(--muted);font-size:10px;text-transform:uppercase;margin-bottom:4px">Fecha fin</div><div style="font-weight:700">'+(d.fecha_fin||'—')+'</div></div><div style="background:#FFFBEB;border-radius:8px;padding:10px;text-align:center"><div style="color:var(--muted);font-size:10px;text-transform:uppercase;margin-bottom:4px">Dias</div><div style="font-weight:700;color:var(--amber)">'+(d.dias||'—')+'</div></div></div>';
+    if(d.entidad_emisora)html+='<div style="font-size:13px;margin-bottom:8px"><span style="color:var(--muted)">Entidad emisora:</span> <strong>'+d.entidad_emisora+'</strong></div>';
+    if(d.numero_documento)html+='<div style="font-size:13px;margin-bottom:8px"><span style="color:var(--muted)">N documento:</span> <strong>'+d.numero_documento+'</strong></div>';
+    if(d.descripcion)html+='<div style="font-size:13px;margin-bottom:12px"><span style="color:var(--muted)">Descripcion:</span> '+d.descripcion+'</div>';
+  }
+  if(data.notas_empleado)html+='<div style="margin-top:12px;padding:10px;background:#F8FAFC;border-radius:8px;font-size:12px;border-left:3px solid var(--border)"><span style="color:var(--muted);font-weight:600">Notas del colaborador:</span> '+data.notas_empleado+'</div>';
+  el.innerHTML=html||'<div style="color:var(--muted);font-size:13px">Sin datos registrados.</div>';
+}
+
+function prellenarModificacion(data){
+  const d=data.datos_solicitud;if(!d)return;
+  const tipo=data.tipo_movimiento;
+  if(tipo==='vacacion'){
+    if(d.fecha_inicio)document.getElementById('mod-vac-inicio').value=d.fecha_inicio;
+    if(d.fecha_fin)document.getElementById('mod-vac-fin').value=d.fecha_fin;
+    if(d.dias)document.getElementById('mod-vac-dias').value=d.dias;
+    if(d.anio_ciclo)document.getElementById('mod-vac-ciclo').value=d.anio_ciclo;
+  } else if(tipo==='incapacidad'){
+    if(d.fecha_inicio)document.getElementById('mod-inc-inicio').value=d.fecha_inicio;
+    if(d.fecha_fin)document.getElementById('mod-inc-fin').value=d.fecha_fin;
+    if(d.dias)document.getElementById('mod-inc-dias').value=d.dias;
+    if(d.entidad_emisora)document.getElementById('mod-inc-entidad').value=d.entidad_emisora;
+    if(d.numero_documento)document.getElementById('mod-inc-doc').value=d.numero_documento;
+  } else if(tipo==='permiso'){
+    if(d.fecha_inicio)document.getElementById('mod-per-inicio').value=d.fecha_inicio;
+    if(d.fecha_fin)document.getElementById('mod-per-fin').value=d.fecha_fin;
+    if(d.dias)document.getElementById('mod-per-dias').value=d.dias;
+    if(d.horas_extra)document.getElementById('mod-per-horas').value=d.horas_extra;
+    if(d.total_horas)document.getElementById('mod-per-total').value=d.total_horas;
+  }
+}
+
+// ============================================================
+// TABS DE DECISIÓN
+// ============================================================
+function setTabDecision(tab){
+  ['aprobar','modificar','rechazar'].forEach(t=>{
+    const btn=document.getElementById('tab-'+t);
+    const panel=document.getElementById('panel-'+t);
+    const isActive=t===tab;
+    if(btn){btn.style.background=isActive?'var(--navy)':'#fff';btn.style.color=isActive?'#fff':'var(--navy)';}
+    if(panel){if(isActive)panel.classList.remove('hidden');else panel.classList.add('hidden');}
+  });
+}
+
+// ============================================================
+// CÁLCULOS MODIFICACIÓN
+// ============================================================
+function calcModDias(){
+  const tipo=solicitudData?.tipo_movimiento;
+  const prefixes={vacacion:'mod-vac',incapacidad:'mod-inc',permiso:'mod-per'};
+  const pref=prefixes[tipo];if(!pref)return;
+  const ini=document.getElementById(pref+'-inicio')?.value;
+  const fin=document.getElementById(pref+'-fin')?.value;
+  if(ini&&fin){
+    const d=Math.round((new Date(fin)-new Date(ini))/(1000*60*60*24))+1;
+    const diasEl=document.getElementById(pref+'-dias');
+    if(diasEl)diasEl.value=d>0?d:0;
+    if(tipo==='permiso')calcModTotal();
+  }
+}
+function calcModTotal(){
+  const dias=parseInt(document.getElementById('mod-per-dias')?.value)||0;
+  const horas=parseInt(document.getElementById('mod-per-horas')?.value)||0;
+  const el=document.getElementById('mod-per-total');
+  if(el)el.value=dias*8+horas;
+}
+
+// ============================================================
+// TOMAR DECISIÓN
+// ============================================================
+async function tomarDecision(accion){
+  if(!solicitudData)return;
+  const tipo=solicitudData.tipo_movimiento;
+
+  let updateData={
+    supervisor_accion_at:new Date().toISOString(),
+    supervisor_user_agent:navigator.userAgent.slice(0,200)
+  };
+
+  if(accion==='aprobar'){
+    const notas=document.getElementById('sup-notas-aprobar').value.trim();
+    if(!confirm('¿Aprobar esta solicitud? Se registrará automáticamente en el sistema.'))return;
+    // Registrar movimiento directamente
+    const datosFinales=solicitudData.datos_solicitud||{};
+    const movBase={
+      cliente_id:solicitudData.cliente_id,
+      colaborador_id:solicitudData.colaborador_id,
+      tipo:solicitudData.tipo_movimiento,
+      fecha_inicio:datosFinales.fecha_inicio||null,
+      fecha_fin:datosFinales.fecha_fin||null,
+      descripcion:datosFinales.descripcion||('Aprobado por supervisor '+new Date().toLocaleDateString('es-PA')),
+      estado:'activo'
+    };
+    if(solicitudData.tipo_movimiento==='vacacion'){
+      // Vacaciones pueden tener múltiples líneas
+      movBase.dias=parseFloat(datosFinales.total_dias||datosFinales.dias)||null;
+      movBase.anio_ciclo=datosFinales.lineas?null:(parseInt(datosFinales.anio_ciclo)||null);
+    } else if(solicitudData.tipo_movimiento==='incapacidad'){
+      movBase.dias=parseFloat(datosFinales.dias)||null;
+      movBase.entidad_emisora=datosFinales.entidad_emisora||null;
+      movBase.numero_documento=datosFinales.numero_documento||null;
+    } else if(solicitudData.tipo_movimiento==='permiso'){
+      movBase.dias=parseFloat(datosFinales.dias)||null;
+      movBase.subtipo=datosFinales.config_rrhh?.nombre_tipo_permiso||datosFinales.subtipo||null;
+      movBase.horas_extra=parseFloat(datosFinales.horas_extra)||0;
+      movBase.total_horas=parseFloat(datosFinales.total_horas)||0;
+      movBase.horas_repuestas=0;
+    }
+
+    // Si vacaciones con múltiples líneas, insertar una por ciclo
+    let movimientoId=null;
+    if(solicitudData.tipo_movimiento==='vacacion'&&datosFinales.lineas?.length){
+      for(const linea of datosFinales.lineas){
+        const {data:m}=await sb.from('movimientos_rrhh').insert({
+          ...movBase,
+          fecha_inicio:linea.fecha_inicio,
+          fecha_fin:linea.fecha_fin,
+          dias:parseFloat(linea.dias)||0,
+          anio_ciclo:parseInt(linea.anio_ciclo)||null
+        }).select('id').single();
+        if(m&&!movimientoId)movimientoId=m.id;
+      }
+    } else {
+      const {data:m,error:mErr}=await sb.from('movimientos_rrhh').insert(movBase).select('id').single();
+      if(mErr){showDecisionMsg('alert-error','Error al registrar: '+mErr.message);return;}
+      movimientoId=m?.id;
+    }
+
+    updateData.estado='aprobado';
+    updateData.notas_supervisor=notas||null;
+    updateData.movimiento_id=movimientoId;
+    updateData.datos_aprobados=datosFinales;
+
+  } else if(accion==='modificar'){
+    const notas=document.getElementById('sup-notas-modificar').value.trim();
+    let datosModif={};
+    if(tipo==='vacacion'){
+      datosModif.fecha_inicio=document.getElementById('mod-vac-inicio').value;
+      datosModif.fecha_fin=document.getElementById('mod-vac-fin').value;
+      datosModif.dias=document.getElementById('mod-vac-dias').value;
+      datosModif.anio_ciclo=document.getElementById('mod-vac-ciclo').value;
+    } else if(tipo==='incapacidad'){
+      datosModif.fecha_inicio=document.getElementById('mod-inc-inicio').value;
+      datosModif.fecha_fin=document.getElementById('mod-inc-fin').value;
+      datosModif.dias=document.getElementById('mod-inc-dias').value;
+      datosModif.entidad_emisora=document.getElementById('mod-inc-entidad').value;
+      datosModif.numero_documento=document.getElementById('mod-inc-doc').value;
+    } else if(tipo==='permiso'){
+      datosModif.fecha_inicio=document.getElementById('mod-per-inicio').value;
+      datosModif.fecha_fin=document.getElementById('mod-per-fin').value;
+      datosModif.dias=document.getElementById('mod-per-dias').value;
+      datosModif.horas_extra=document.getElementById('mod-per-horas').value;
+      datosModif.total_horas=document.getElementById('mod-per-total').value;
+    }
+    updateData.estado='modificado';
+    updateData.datos_modificados=datosModif;
+    updateData.notas_supervisor=notas||null;
+    if(!confirm('¿Enviar modificación al colaborador para su confirmación?'))return;
+
+  } else if(accion==='rechazar'){
+    const motivo=document.getElementById('sup-notas-rechazar').value.trim();
+    if(!motivo){showDecisionMsg('alert-warning','Indica el motivo del rechazo.');return;}
+    updateData.estado='rechazado';
+    updateData.notas_supervisor=motivo;
+    if(!confirm('¿Rechazar esta solicitud? Esta acción quedará en bitácora.'))return;
+  }
+
+  const btnId={aprobar:'panel-aprobar',modificar:'panel-modificar',rechazar:'panel-rechazar'}[accion];
+  const btn=document.querySelector('#'+btnId+' .btn');
+  if(btn){btn.disabled=true;btn.textContent='Guardando...';}
+
+  // UPDATE con verificación — usar token como filtro adicional para evitar RLS
+  const {data:updResult, error}=await sb.from('solicitud_tokens')
+    .update(updateData)
+    .eq('id',solicitudData.id)
+    .eq('token_supervisor',new URLSearchParams(window.location.search).get('token'))
+    .select('id,estado')
+    .single();
+
+  if(error||!updResult){
+    console.error('Update error:',error);
+    // Intentar sin .single() como fallback
+    const {error:err2}=await sb.from('solicitud_tokens')
+      .update(updateData)
+      .eq('token_supervisor',new URLSearchParams(window.location.search).get('token'));
+    if(err2){
+      showDecisionMsg('alert-error','Error al guardar: '+( error?.message||err2?.message||'Sin respuesta del servidor'));
+      if(btn){btn.disabled=false;btn.textContent='Error — reintentar';}
+      return;
+    }
+  }
+
+  const msgs={
+    aprobar:{icon:'✅',title:'Solicitud aprobada',msg:'La solicitud fue aprobada y registrada en el sistema. Este link ya no está disponible.'},
+    modificar:{icon:'✏️',title:'Modificación enviada',msg:'Los cambios fueron enviados al colaborador para su confirmación.'},
+    rechazar:{icon:'❌',title:'Solicitud rechazada',msg:'El rechazo fue registrado. Este link ya no está disponible.'}
+  };
+  const m=msgs[accion];
+  showDone(m.icon+' '+m.title,m.msg);
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+function showError(title,msg){
+  document.getElementById('loading-state').classList.add('hidden');
+  document.getElementById('error-title').textContent=title;
+  document.getElementById('error-msg').textContent=msg;
+  document.getElementById('error-state').classList.remove('hidden');
+}
+
+function showDone(title,msg){
+  document.getElementById('loading-state').classList.add('hidden');
+  document.getElementById('main-state').classList.add('hidden');
+  document.getElementById('done-title').textContent=title;
+  document.getElementById('done-msg').textContent=msg;
+  document.getElementById('done-state').classList.remove('hidden');
+}
+
+function showDecisionMsg(cls,msg){
+  const el=document.getElementById('decision-msg');
+  el.innerHTML='<div class="alert '+cls+'">'+msg+'</div>';
+}
+
+init();
+</script>
+</body>
+</html>
