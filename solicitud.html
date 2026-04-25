@@ -154,6 +154,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
           <div><label class="fl">FECHA INICIO</label><input type="date" class="fi" id="inc-inicio" onchange="calcDiasInc()"></div>
           <div><label class="fl">FECHA FIN</label><input type="date" class="fi" id="inc-fin" onchange="calcDiasInc()"></div>
           <div><label class="fl">DÍAS</label><input type="number" class="fi" id="inc-dias" readonly style="background:#F8FAFC"></div>
+          <div><label class="fl">HORAS <span style="font-size:10px;color:var(--muted)">(si aplica)</span></label><input type="number" class="fi" id="inc-horas" placeholder="0" min="0" max="23" step="0.5"></div>
           <div><label class="fl">ENTIDAD EMISORA</label><input type="text" class="fi" id="inc-entidad" placeholder="Ej: CSS, Hospital San Miguel..."></div>
           <div><label class="fl">N° DOCUMENTO</label><input type="text" class="fi" id="inc-doc" placeholder="Número del certificado"></div>
           <div class="fg-full"><label class="fl">DESCRIPCIÓN (opcional)</label><textarea class="fi" id="inc-desc" rows="2" placeholder="Detalle de la incapacidad..."></textarea></div>
@@ -804,6 +805,7 @@ async function enviarSolicitud(){
     datos.fecha_inicio=document.getElementById('inc-inicio').value;
     datos.fecha_fin=document.getElementById('inc-fin').value;
     datos.dias=document.getElementById('inc-dias').value;
+    datos.horas_extra=document.getElementById('inc-horas').value||0;
     datos.entidad_emisora=document.getElementById('inc-entidad').value;
     datos.numero_documento=document.getElementById('inc-doc').value;
     datos.descripcion=document.getElementById('inc-desc').value;
@@ -933,6 +935,7 @@ function imprimirSolicitud(){
     detalle=`<tr><td>Fecha inicio</td><td>${document.getElementById('inc-inicio').value||'—'}</td></tr>
              <tr><td>Fecha fin</td><td>${document.getElementById('inc-fin').value||'—'}</td></tr>
              <tr><td>Días</td><td>${document.getElementById('inc-dias').value||'—'}</td></tr>
+             <tr><td>Horas</td><td>${parseFloat(document.getElementById('inc-horas').value)||0}</td></tr>
              <tr><td>Entidad emisora</td><td>${document.getElementById('inc-entidad').value||'—'}</td></tr>
              <tr><td>N° documento</td><td>${document.getElementById('inc-doc').value||'—'}</td></tr>`;
   } else if(tipo==='permiso'){
