@@ -908,7 +908,7 @@ table.dt th:first-child{padding-left:14px}
       <div id="mov-fecha-inicio-group"><label class="fl">FECHA INICIO</label><input type="date" class="fi" id="mov-inicio" oninput="calcDiasYHoras()"></div>
       <div id="mov-fecha-fin-group"><label class="fl">FECHA FIN</label><input type="date" class="fi" id="mov-fin" oninput="calcDiasYHoras()"></div>
       <div id="mov-dias-group"><label class="fl">DÍAS</label><input type="number" class="fi" id="mov-dias" placeholder="0" step="0.5" oninput="calcTotalHorasPermiso()"></div>
-      <div id="mov-horas-group" class="hidden"><label class="fl">HORAS ADICIONALES</label><input type="number" class="fi" id="mov-horas-extra" placeholder="0" step="0.5" oninput="calcTotalHorasPermiso()"></div>
+      <div id="mov-horas-group" class="hidden"><label class="fl" id="mov-horas-label">HORAS</label><input type="number" class="fi" id="mov-horas-extra" placeholder="0" min="0" max="23" step="0.5" oninput="calcTotalHorasPermiso()"></div>
       <div id="mov-total-horas-group" class="hidden"><label class="fl">TOTAL HORAS PERMISO</label><input type="number" class="fi" id="mov-total-horas" placeholder="0" readonly style="background:#F8FAFF;color:var(--blue);font-weight:600"></div>
       <div id="mov-subtipo-group" class="hidden" style="grid-column:1/-1">
         <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:var(--navy);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">Clasificación del permiso</div>
@@ -1338,7 +1338,7 @@ table.dt th:first-child{padding-left:14px}
   <div class="modal" style="max-width:540px">
     <div class="modal-title">Importar movimientos desde CSV</div>
     <div class="alert alert-info">Columnas requeridas en este orden:</div>
-    <div style="background:#F4F6F9;border-radius:8px;padding:10px 12px;font-size:11px;font-family:monospace;margin-bottom:10px">cedula_colaborador, tipo, fecha_inicio, fecha_fin, dias, subtipo, descripcion, estado</div>
+    <div style="background:#F4F6F9;border-radius:8px;padding:10px 12px;font-size:11px;font-family:monospace;margin-bottom:10px">cedula_colaborador, tipo, fecha_inicio, fecha_fin, dias, subtipo, horas, descripcion, estado</div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:14px"><strong>Tipo:</strong> vacacion | incapacidad | permiso</div>
     <div class="import-zone" onclick="document.getElementById('csv-movs').click()">
       <div style="font-size:24px;margin-bottom:8px">📋</div>
@@ -2552,8 +2552,11 @@ function toggleMovTipo(){
   const hg=document.getElementById('mov-horas-group');
   const thg=document.getElementById('mov-total-horas-group');
   const rs=document.getElementById('mov-reposicion-section');
-  if(hg)hg.classList.toggle('hidden',!isPermiso);
+  if(hg)hg.classList.toggle('hidden',!isPermiso&&!isInc);
   if(thg)thg.classList.toggle('hidden',!isPermiso);
+  // Cambiar label según tipo
+  const horasLbl=document.getElementById('mov-horas-label');
+  if(horasLbl)horasLbl.textContent=isInc?'HORAS':'HORAS ADICIONALES';
   if(rs)rs.classList.toggle('hidden',!isPermiso);
   if(isPermiso){
     document.getElementById('mov-subtipo').innerHTML='<option value="">Sin especificar</option>'+tiposPermiso.map(tp=>'<option value="'+tp.nombre+'">'+tp.nombre+'</option>').join('');
@@ -3681,7 +3684,7 @@ function procesarCSVMovs(input){
       if(cols.length<3){errs.push('Línea '+(idx+start+1)+': columnas insuficientes');return;}
       const colab=colaboradores.find(c=>c.cedula===cols[0]);
       if(!colab){errs.push('Línea '+(idx+start+1)+': cédula "'+cols[0]+'" no encontrada');return;}
-      csvMP.push({colaborador_id:colab.id,tipo:cols[1]||'vacacion',fecha_inicio:cols[2]||null,fecha_fin:cols[3]||null,dias:parseFloat(cols[4])||0,subtipo:cols[5]||null,descripcion:cols[6]||null,estado:cols[7]||'finalizado'});
+      csvMP.push({colaborador_id:colab.id,tipo:cols[1]||'vacacion',fecha_inicio:cols[2]||null,fecha_fin:cols[3]||null,dias:parseFloat(cols[4])||0,subtipo:cols[5]||null,horas_extra:parseFloat(cols[6])||0,descripcion:cols[7]||null,estado:cols[8]||'finalizado'});
     });
     showIP('import-movs-preview','btn-confirmar-movs',csvMP,errs,['COLABORADOR','TIPO','INICIO','FIN','DÍAS'],r=>[colaboradores.find(c=>c.id===r.colaborador_id)?.nombre||'—',r.tipo,r.fecha_inicio||'—',r.fecha_fin||'—',r.dias]);
   };reader.readAsText(file,'UTF-8');
