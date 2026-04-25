@@ -1608,11 +1608,12 @@ function calcSaldoInc(colabId){
   const acumulado=Math.min(36,parseFloat((diasEnVentana*0.05).toFixed(2)));
 
   // Días de incapacidad usados dentro de la ventana
+  // Las horas se convierten a días base 8 (jornada laboral)
   const inicioVentanaStr=inicioVentana.toISOString().split('T')[0];
   const usado=movimientos
     .filter(m=>m.colaborador_id===colabId&&m.tipo==='incapacidad'&&
       m.fecha_inicio&&m.fecha_inicio>=inicioVentanaStr)
-    .reduce((a,m)=>a+parseFloat(m.dias||0),0);
+    .reduce((a,m)=>a+parseFloat(m.dias||0)+parseFloat((m.horas_extra||0)/8),0);
 
   return parseFloat(Math.max(0,acumulado-usado).toFixed(2));
 }
@@ -1631,7 +1632,7 @@ function calcDetalleInc(colabId){
   const usado=movimientos
     .filter(m=>m.colaborador_id===colabId&&m.tipo==='incapacidad'&&
       m.fecha_inicio&&m.fecha_inicio>=inicioVentanaStr)
-    .reduce((a,m)=>a+parseFloat(m.dias||0),0);
+    .reduce((a,m)=>a+parseFloat(m.dias||0)+parseFloat((m.horas_extra||0)/8),0);
   return {
     acumulado,
     usado:parseFloat(usado.toFixed(2)),
