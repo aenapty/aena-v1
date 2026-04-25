@@ -149,6 +149,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
             <div><label class="fl">FECHA INICIO</label><input type="date" class="fi" id="mod-inc-inicio" onchange="calcModDias()"></div>
             <div><label class="fl">FECHA FIN</label><input type="date" class="fi" id="mod-inc-fin" onchange="calcModDias()"></div>
             <div><label class="fl">DÍAS</label><input type="number" class="fi" id="mod-inc-dias" readonly style="background:#F8FAFC"></div>
+            <div><label class="fl">HORAS <span style="font-size:10px;color:var(--muted)">(si aplica)</span></label><input type="number" class="fi" id="mod-inc-horas" placeholder="0" min="0" max="23" step="0.5"></div>
             <div><label class="fl">ENTIDAD EMISORA</label><input type="text" class="fi" id="mod-inc-entidad"></div>
             <div><label class="fl">N° DOCUMENTO</label><input type="text" class="fi" id="mod-inc-doc"></div>
           </div>
@@ -302,7 +303,11 @@ function renderDatosSolicitud(data){
     }
     if(d.descripcion)html+='<div style="font-size:13px;margin-bottom:12px"><span style="color:var(--muted)">Descripcion:</span> '+d.descripcion+'</div>';
   } else if(tipo==='incapacidad'){
-    html+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;font-size:13px"><div style="background:#F8FAFC;border-radius:8px;padding:10px;text-align:center"><div style="color:var(--muted);font-size:10px;text-transform:uppercase;margin-bottom:4px">Fecha inicio</div><div style="font-weight:700">'+(d.fecha_inicio||'—')+'</div></div><div style="background:#F8FAFC;border-radius:8px;padding:10px;text-align:center"><div style="color:var(--muted);font-size:10px;text-transform:uppercase;margin-bottom:4px">Fecha fin</div><div style="font-weight:700">'+(d.fecha_fin||'—')+'</div></div><div style="background:#FFFBEB;border-radius:8px;padding:10px;text-align:center"><div style="color:var(--muted);font-size:10px;text-transform:uppercase;margin-bottom:4px">Dias</div><div style="font-weight:700;color:var(--amber)">'+(d.dias||'—')+'</div></div></div>';
+    const horasInc=parseFloat(d.horas_extra)||0;
+    const tercer=horasInc>0
+      ?'<div style="background:#FFFBEB;border-radius:8px;padding:10px;text-align:center"><div style="color:var(--muted);font-size:10px;text-transform:uppercase;margin-bottom:4px">Días / Horas</div><div style="font-weight:700;color:var(--amber)">'+(d.dias||'0')+'d '+horasInc+'h</div></div>'
+      :'<div style="background:#FFFBEB;border-radius:8px;padding:10px;text-align:center"><div style="color:var(--muted);font-size:10px;text-transform:uppercase;margin-bottom:4px">Dias</div><div style="font-weight:700;color:var(--amber)">'+(d.dias||'—')+'</div></div>';
+    html+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;font-size:13px"><div style="background:#F8FAFC;border-radius:8px;padding:10px;text-align:center"><div style="color:var(--muted);font-size:10px;text-transform:uppercase;margin-bottom:4px">Fecha inicio</div><div style="font-weight:700">'+(d.fecha_inicio||'—')+'</div></div><div style="background:#F8FAFC;border-radius:8px;padding:10px;text-align:center"><div style="color:var(--muted);font-size:10px;text-transform:uppercase;margin-bottom:4px">Fecha fin</div><div style="font-weight:700">'+(d.fecha_fin||'—')+'</div></div>'+tercer+'</div>';
     if(d.entidad_emisora)html+='<div style="font-size:13px;margin-bottom:8px"><span style="color:var(--muted)">Entidad emisora:</span> <strong>'+d.entidad_emisora+'</strong></div>';
     if(d.numero_documento)html+='<div style="font-size:13px;margin-bottom:8px"><span style="color:var(--muted)">N documento:</span> <strong>'+d.numero_documento+'</strong></div>';
     if(d.descripcion)html+='<div style="font-size:13px;margin-bottom:12px"><span style="color:var(--muted)">Descripcion:</span> '+d.descripcion+'</div>';
@@ -323,6 +328,7 @@ function prellenarModificacion(data){
     if(d.fecha_inicio)document.getElementById('mod-inc-inicio').value=d.fecha_inicio;
     if(d.fecha_fin)document.getElementById('mod-inc-fin').value=d.fecha_fin;
     if(d.dias)document.getElementById('mod-inc-dias').value=d.dias;
+    if(d.horas_extra)document.getElementById('mod-inc-horas').value=d.horas_extra;
     if(d.entidad_emisora)document.getElementById('mod-inc-entidad').value=d.entidad_emisora;
     if(d.numero_documento)document.getElementById('mod-inc-doc').value=d.numero_documento;
   } else if(tipo==='permiso'){
@@ -402,6 +408,7 @@ async function tomarDecision(accion){
       movBase.anio_ciclo=datosFinales.lineas?null:(parseInt(datosFinales.anio_ciclo)||null);
     } else if(solicitudData.tipo_movimiento==='incapacidad'){
       movBase.dias=parseFloat(datosFinales.dias)||null;
+      movBase.horas_extra=parseFloat(datosFinales.horas_extra)||0;
       movBase.entidad_emisora=datosFinales.entidad_emisora||null;
       movBase.numero_documento=datosFinales.numero_documento||null;
     } else if(solicitudData.tipo_movimiento==='permiso'){
@@ -448,6 +455,7 @@ async function tomarDecision(accion){
       datosModif.fecha_inicio=document.getElementById('mod-inc-inicio').value;
       datosModif.fecha_fin=document.getElementById('mod-inc-fin').value;
       datosModif.dias=document.getElementById('mod-inc-dias').value;
+      datosModif.horas_extra=document.getElementById('mod-inc-horas').value||0;
       datosModif.entidad_emisora=document.getElementById('mod-inc-entidad').value;
       datosModif.numero_documento=document.getElementById('mod-inc-doc').value;
     } else if(tipo==='permiso'){
