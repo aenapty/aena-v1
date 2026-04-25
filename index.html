@@ -1789,7 +1789,7 @@ function renderDash(){
     document.getElementById('dash-meses').innerHTML='<div class="card-header"><div class="card-title">Últimos movimientos</div></div>'+movimientos.slice(0,6).map(m=>'<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:0.5px solid var(--border);font-size:12px"><div><span style="font-weight:500">'+( m.colaboradores?.nombre||'—')+'</span><span style="color:var(--muted);margin-left:6px;font-size:10px">'+(m.fecha_inicio||'')+'</span></div><span class="tag '+(m.tipo==='vacacion'?'tag-green':m.tipo==='incapacidad'?'tag-amber':'tag-blue')+'">'+m.tipo+'</span></div>').join('');
     document.getElementById('dash-table-title').textContent='Alertas — saldos críticos';
     document.getElementById('dash-thead').innerHTML='<th>COLABORADOR</th><th>CARGO</th><th>SALDO VAC.</th><th>SALDO INC.</th><th></th>';
-    const criticos=colaboradores.filter(c=>calcSaldoVac(c.id)<5||calcSaldoInc(c.id)<5);
+    const criticos=colaboradores.filter(c=>c.estado!=='inactivo'&&(calcSaldoVac(c.id)<5||calcSaldoInc(c.id)<5));
     document.getElementById('dash-tbody').innerHTML=criticos.map(c=>'<tr><td><div style="display:flex;align-items:center;gap:9px"><div class="emp-avatar" style="background:'+AVATARCOLS[Math.abs(c.nombre.charCodeAt(0))%AVATARCOLS.length]+'">'+c.nombre.substring(0,2).toUpperCase()+'</div>'+c.nombre+'</div></td><td style="color:var(--muted)">'+( c.cargo||'—')+'</td><td style="color:'+(calcSaldoVac(c.id)<5?'var(--red)':'#B45309')+';font-weight:600">'+calcSaldoVac(c.id).toFixed(1)+' días</td><td style="color:'+(calcSaldoInc(c.id)<5?'var(--red)':'var(--text)')+';font-weight:600">'+calcSaldoInc(c.id).toFixed(1)+' días</td><td><span class="tag tag-red">Crítico</span></td></tr>').join('')||'<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">Sin alertas críticas ✓</td></tr>';
     return;
   }
@@ -2191,7 +2191,7 @@ function renderRrhhReporte(){
   if(!el)return;
 
   const colabOpts='<option value="">Todos los colaboradores</option>'+
-    colaboradores.map(c=>`<option value="${c.id}" ${rrFiltroColab===c.id?'selected':''}>${c.nombre}</option>`).join('');
+    colaboradores.filter(c=>c.estado!=='inactivo').map(c=>`<option value="${c.id}" ${rrFiltroColab===c.id?'selected':''}>${c.nombre}</option>`).join('');
   const subtipoOpts='<option value="">Todos</option>'+
     tiposPermiso.map(t=>`<option value="${t.nombre}" ${rrFiltroSubtipo===t.nombre?'selected':''}>${t.nombre}</option>`).join('');
   const horarioOpts='<option value="">Todos</option>'+
@@ -2412,7 +2412,7 @@ function renderSaldos(){
   const el=document.getElementById('saldos-content');
   if(!el)return;
 
-  const rows=colaboradores.map(c=>{
+  const rows=colaboradores.filter(c=>c.estado!=='inactivo').map(c=>{
     const ciclos=calcCiclosVac(c.id);
     const inc=calcDetalleInc(c.id);
 
@@ -3212,7 +3212,7 @@ function abrirEdicionMovimiento(id){
 
   // Poblar colaboradores y seleccionar el correcto
   document.getElementById('mov-colab').innerHTML='<option value="">— Seleccionar colaborador —</option>'+
-    colaboradores.map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
+    colaboradores.filter(c=>c.estado!=='inactivo').map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
   document.getElementById('mov-colab').value=m.colaborador_id||'';
 
   // Establecer tipo y mostrar secciones correctas
@@ -4073,7 +4073,7 @@ function exportExcelRrhh(){
   const headSaldos=['COLABORADOR','CÉDULA','AÑO','ACUMULADO VAC','CONSUMIDO VAC','SALDO VAC','ACUM. INC','SALDO INC'];
   XLSX.utils.sheet_add_aoa(hSaldos,[headSaldos],{origin:{r:encS-1,c:0}});
   const rowsSaldos=[];
-  colaboradores.forEach(c=>{
+  colaboradores.filter(c=>c.estado!=='inactivo').forEach(c=>{
     const ciclos=calcCiclosVac(c.id);
     const inc=calcDetalleInc(c.id);
     if(ciclos.length===0){
