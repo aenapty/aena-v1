@@ -1420,7 +1420,7 @@ const SUPABASE_KEY='sb_publishable_rCbSAjOlexErR9WBN-rfZA_8Tadpfa0';
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
 const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-let anioActivo=new Date().getFullYear();
+let anioActivo=2025;
 const ANIOS=()=>{const a=[];for(let y=2025;y<=new Date().getFullYear()+1;y++)a.push(y);return a;};
 const fmt=n=>'$'+parseFloat(n||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');
 const anio=new Date().getFullYear();
@@ -1608,7 +1608,6 @@ function calcSaldoInc(colabId){
   const acumulado=Math.min(36,parseFloat((diasEnVentana*0.05).toFixed(2)));
 
   // Días de incapacidad usados dentro de la ventana
-  // Las horas se convierten a días base 8 (jornada laboral)
   const inicioVentanaStr=inicioVentana.toISOString().split('T')[0];
   const usado=movimientos
     .filter(m=>m.colaborador_id===colabId&&m.tipo==='incapacidad'&&
@@ -1872,7 +1871,7 @@ function renderAnual(){
 if(!facturas||!facturas.length){document.getElementById('reporte-anual-content').innerHTML='<div class="alert alert-info">Sin facturas registradas para mostrar.</div>';return;}
   function renderReporteAnual(){
   const clienteNombre=clienteActivo?.nombre||'';
-  const facturasAnio=facturas.filter(f=>f.anio===anioActivo||(!f.anio&&anioActivo===2025));
+  const facturasAnio=facturas.filter(f=>(f.fecha_exacta||'').startsWith(String(anioActivo)));
   let html=`<div style="background:var(--navy);color:#fff;border-radius:12px 12px 0 0;padding:16px 20px;margin-bottom:0">
     <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px">Reporte anual de compras ${anioActivo}</div>
     <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px">${clienteNombre}</div>
@@ -1886,9 +1885,8 @@ if(!facturas||!facturas.length){document.getElementById('reporte-anual-content')
     </tr></thead><tbody>`;
 
   const filas=[
-    {lbl:'Gravadas',fn:f=>parseFloat(f.monto_gravable||0),color:'#1A2540'},
-    {lbl:'No Gravadas',fn:f=>parseFloat(f.monto_exento||0),color:'#1A2540'},
-    {lbl:'ITBMS',fn:f=>parseFloat(f.itbms_factura||0),color:'#B45309',bold:true},
+    {lbl:'Gravadas',fn:f=>parseFloat(f.monto_gravable||0),color:'inherit'},
+    {lbl:'No Gravadas',fn:f=>parseFloat(f.monto_exento||0),color:'inherit'},
   ];
 
   filas.forEach((fila,fi)=>{
@@ -1897,25 +1895,52 @@ if(!facturas||!facturas.length){document.getElementById('reporte-anual-content')
       const mes=i+1;
       const v=facturasAnio.filter(f=>f.mes===mes).reduce((a,f)=>a+fila.fn(f),0);
       tot+=v;
-      return`<td style="padding:7px 6px;border-bottom:1px solid var(--border);text-align:right;${fila.bold?'font-weight:600;color:'+fila.color:''}">${fmt(v)}</td>`;
+      return`<td style="padding:7px 6px;border-bottom:1px solid var(--border);text-align:right">${fmt(v)}</td>`;
     }).join('');
     html+=`<tr style="${fi%2===0?'background:#FAFBFF':'background:#fff'}">
-      <td style="padding:7px 10px;border-bottom:1px solid var(--border);font-weight:${fila.bold?'600':'400'};color:${fila.color}">${fila.lbl}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${fila.lbl}</td>
       ${celdas}
-      <td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:right;font-weight:600;color:${fila.color}">${fmt(tot)}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:right;font-weight:600">${fmt(tot)}</td>
     </tr>`;
   });
 
-  let totales=MESES.map((m,i)=>{
+  // Fila Subtotal (Gravadas + No Gravadas)
+  const subtotalCeldas=MESES.map((m,i)=>{
     const mes=i+1;
     const v=facturasAnio.filter(f=>f.mes===mes).reduce((a,f)=>a+parseFloat(f.monto_gravable||0)+parseFloat(f.monto_exento||0),0);
+    return`<td style="padding:7px 6px;border-bottom:1px solid var(--border);text-align:right;font-weight:600">${fmt(v)}</td>`;
+  }).join('');
+  const subtotal=facturasAnio.reduce((a,f)=>a+parseFloat(f.monto_gravable||0)+parseFloat(f.monto_exento||0),0);
+  html+=`<tr style="background:#EEF2FF">
+    <td style="padding:7px 10px;border-bottom:1px solid var(--border);font-weight:700">Subtotal</td>
+    ${subtotalCeldas}
+    <td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:right;font-weight:700">${fmt(subtotal)}</td>
+  </tr>`;
+
+  // Fila ITBMS
+  const itbmsCeldas=MESES.map((m,i)=>{
+    const mes=i+1;
+    const v=facturasAnio.filter(f=>f.mes===mes).reduce((a,f)=>a+parseFloat(f.itbms_factura||0),0);
+    return`<td style="padding:7px 6px;border-bottom:1px solid var(--border);text-align:right;font-weight:600;color:#B45309">${fmt(v)}</td>`;
+  }).join('');
+  const totalItbms=facturasAnio.reduce((a,f)=>a+parseFloat(f.itbms_factura||0),0);
+  html+=`<tr style="background:#fff">
+    <td style="padding:7px 10px;border-bottom:1px solid var(--border);font-weight:600;color:#B45309">ITBMS</td>
+    ${itbmsCeldas}
+    <td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:right;font-weight:700;color:#B45309">${fmt(totalItbms)}</td>
+  </tr>`;
+
+  // Fila Gran Total
+  let granTotales=MESES.map((m,i)=>{
+    const mes=i+1;
+    const v=facturasAnio.filter(f=>f.mes===mes).reduce((a,f)=>a+parseFloat(f.monto_gravable||0)+parseFloat(f.monto_exento||0)+parseFloat(f.itbms_factura||0),0);
     return`<td style="padding:8px 6px;text-align:right;color:#fff;font-weight:700">${fmt(v)}</td>`;
   }).join('');
-  const totTotal=facturasAnio.reduce((a,f)=>a+parseFloat(f.monto_gravable||0)+parseFloat(f.monto_exento||0),0);
+  const granTotal=facturasAnio.reduce((a,f)=>a+parseFloat(f.monto_gravable||0)+parseFloat(f.monto_exento||0)+parseFloat(f.itbms_factura||0),0);
   html+=`<tr style="background:var(--navy)">
-    <td style="padding:8px 10px;color:#fff;font-weight:700">Totales</td>
-    ${totales}
-    <td style="padding:8px 10px;text-align:right;color:#fff;font-weight:700">${fmt(totTotal)}</td>
+    <td style="padding:8px 10px;color:#fff;font-weight:700">Gran Total</td>
+    ${granTotales}
+    <td style="padding:8px 10px;text-align:right;color:#fff;font-weight:700">${fmt(granTotal)}</td>
   </tr>`;
   html+=`</tbody></table></div></div>`;
   document.getElementById('reporte-anual-content').innerHTML=html;
@@ -1925,8 +1950,8 @@ if(!facturas||!facturas.length){document.getElementById('reporte-anual-content')
 
 function renderRptItbms(){
   const clienteNombre=clienteActivo?.nombre||'';
-  const facturasAnio=facturas.filter(f=>f.anio===anioActivo||(!f.anio&&anioActivo===2025));
-  const ingresosAnio=ingresos.filter(i=>i.anio===anioActivo||(!i.anio&&anioActivo===2025));
+  const facturasAnio=facturas.filter(f=>(f.fecha_exacta||'').startsWith(String(anioActivo)));
+  const ingresosAnio=ingresos.filter(i=>i.anio===anioActivo);
   let html=`<div style="background:var(--navy);color:#fff;border-radius:12px 12px 0 0;padding:16px 20px">
     <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px">Reporte anual ITBMS ${anioActivo}</div>
     <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px">${clienteNombre}</div>
@@ -2555,7 +2580,6 @@ function toggleMovTipo(){
   const rs=document.getElementById('mov-reposicion-section');
   if(hg)hg.classList.toggle('hidden',!isPermiso&&!isInc);
   if(thg)thg.classList.toggle('hidden',!isPermiso);
-  // Cambiar label según tipo
   const horasLbl=document.getElementById('mov-horas-label');
   if(horasLbl)horasLbl.textContent=isInc?'HORAS':'HORAS ADICIONALES';
   if(rs)rs.classList.toggle('hidden',!isPermiso);
@@ -3644,7 +3668,6 @@ function procesarCSVFacturas(input){
       if(!fecha){errs.push('Línea '+(idx+start+1)+': fecha requerida');return;}
       const nFactura=cols[1]||null;
       const grav=parseFloat(cols[6])||0;
-      // Columna 9: nombre de clasificación — buscar id en array cargado en memoria
       const claseNombre=(cols[9]||'').trim();
       const claseMatch=claseNombre
         ?clasificaciones.find(c=>c.nombre.toLowerCase()===claseNombre.toLowerCase())
@@ -3713,7 +3736,7 @@ function showIP(prevId,btnId,datos,errs,cols,rowFn){
 }
 
 async function confirmarImportFacturas(){
-  const id=clienteActivo?.id;const rows=csvFP.map(r=>({...r,cliente_id:id,modulo:moduloActivo,anio}));
+  const id=clienteActivo?.id;const rows=csvFP.map(r=>({...r,cliente_id:id,modulo:moduloActivo,anio:r.fecha_exacta?parseInt(r.fecha_exacta.substring(0,4)):anio}));
   for(let i=0;i<rows.length;i+=100){const {error}=await sb.from('facturas').insert(rows.slice(i,i+100));if(error){alert('Error: '+error.message);return;}}
   hideModal('modal-importar-facturas');csvFP=[];document.getElementById('csv-facturas').value='';
   await loadFacturas(id);renderPage('facturas');alert('¡'+rows.length+' facturas importadas exitosamente!');
@@ -3954,7 +3977,7 @@ function exportExcelDetallado(){
 
 // -- REPORTE ANUAL COMPRAS --
 function exportExcelAnual(){
-  const facturasAnio=facturas.filter(f=>f.anio===anioActivo||(!f.anio&&anioActivo===2025));
+  const facturasAnio=facturas.filter(f=>(f.fecha_exacta||'').startsWith(String(anioActivo)));
   const headers=['CONCEPTO',...MESES.map(m=>m.substring(0,3)),'TOTAL'];
   const filas=[
     {lbl:'Gravadas',fn:f=>parseFloat(f.monto_gravable||0)},
@@ -3992,8 +4015,8 @@ function exportExcelAnual(){
 
 // -- REPORTE ANUAL ITBMS --
 function exportExcelRptItbms(){
-  const facturasAnio=facturas.filter(f=>f.anio===anioActivo||(!f.anio&&anioActivo===2025));
-  const ingresosAnio=ingresos.filter(i=>i.anio===anioActivo||(!i.anio&&anioActivo===2025));
+  const facturasAnio=facturas.filter(f=>(f.fecha_exacta||'').startsWith(String(anioActivo)));
+  const ingresosAnio=ingresos.filter(i=>i.anio===anioActivo);
   const headers=['CONCEPTO',...MESES.map(m=>m.substring(0,3)),'TOTAL'];
   const filas=[
     {lbl:'Ingresos Gravados',fn:(m)=>parseFloat(ingresosAnio.find(i=>i.mes===m)?.gravable||0)},
