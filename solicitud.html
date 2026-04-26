@@ -896,7 +896,7 @@ async function enviarSolicitud(){
           <p style="text-align:center;font-size:10px;color:#94A3B8;margin-top:16px;letter-spacing:1px">AENA · SMART BUSINESS CONTROL</p>
         </div>`;
 
-      await fetch('/.netlify/functions/send-email',{
+      await fetch('/api/send-email',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({
