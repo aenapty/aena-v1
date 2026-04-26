@@ -3644,6 +3644,11 @@ function procesarCSVFacturas(input){
       if(!fecha){errs.push('Línea '+(idx+start+1)+': fecha requerida');return;}
       const nFactura=cols[1]||null;
       const grav=parseFloat(cols[6])||0;
+      // Columna 9: nombre de clasificación — buscar id en array cargado en memoria
+      const claseNombre=(cols[9]||'').trim();
+      const claseMatch=claseNombre
+        ?clasificaciones.find(c=>c.nombre.toLowerCase()===claseNombre.toLowerCase())
+        :null;
       csvFP.push({
         mes:mesNum,fecha_exacta:fecha,
         numero_factura:nFactura,
@@ -3652,12 +3657,13 @@ function procesarCSVFacturas(input){
         monto_gravable:grav,monto_exento:parseFloat(cols[7])||0,
         itbms_calculado:grav*0.07,
         itbms_factura:parseFloat(cols[8])||parseFloat((grav*0.07).toFixed(2)),
-        retencion:0,tipo:cols[9]||'Bien'
+        retencion:0,tipo:'Bien',
+        clasificacion_id:claseMatch?claseMatch.id:null
       });
     });
     showIP('import-facturas-preview','btn-confirmar-facturas',csvFP,errs,
-      ['FECHA','N° FACTURA','PROVEEDOR','CONCEPTO','GRAVABLE','ITBMS'],
-      r=>[r.fecha_exacta,r.numero_factura||'—',r.proveedor,r.concepto,fmt(r.monto_gravable),fmt(r.itbms_factura)]);
+      ['FECHA','N° FACTURA','PROVEEDOR','CONCEPTO','GRAVABLE','ITBMS','CLASIFICACIÓN'],
+      r=>[r.fecha_exacta,r.numero_factura||'—',r.proveedor,r.concepto,fmt(r.monto_gravable),fmt(r.itbms_factura),r.clasificacion_id?'✓':'—']);
   };reader.readAsText(file,'UTF-8');
 }
 
