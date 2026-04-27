@@ -3681,7 +3681,7 @@ function procesarCSVFacturas(input){
         concepto:cols[5]||'',detalle:cols[5]||null,
         monto_gravable:grav,monto_exento:parseFloat(cols[7])||0,
         itbms_calculado:grav*0.07,
-        itbms_factura:parseFloat(cols[8])||parseFloat((grav*0.07).toFixed(2)),
+        itbms_factura:parseFloat(cols[8])||0,
         retencion:0,tipo:'Bien',
         clasificacion_id:claseMatch?claseMatch.id:null
       });
