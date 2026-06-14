@@ -255,6 +255,15 @@ table.dt th:first-child{padding-left:14px}
 
 /* MODAL */
 .modal-overlay{position:fixed;inset:0;background:rgba(10,22,40,0.6);display:flex;align-items:flex-start;justify-content:center;z-index:100;padding:24px;overflow-y:auto;backdrop-filter:blur(4px)}
+#modal-factura:not(.hidden){pointer-events:none;background:transparent;backdrop-filter:none;align-items:stretch;justify-content:flex-end;padding:0}
+#modal-factura .modal{pointer-events:auto;margin:0;width:64%;max-width:820px;max-height:100vh;overflow-y:auto;border-radius:0;box-shadow:-10px 0 30px rgba(10,22,40,0.18)}
+.ft-tabs{display:flex;gap:4px;flex-wrap:wrap;margin:-4px -4px 16px;padding:6px 4px 0;border-bottom:1px solid var(--border)}
+.ft-tab{display:flex;align-items:center;gap:8px;font-size:12px;padding:7px 12px;border:1px solid var(--border);border-bottom:none;border-radius:8px 8px 0 0;background:#F1F4F9;color:var(--muted);cursor:pointer;max-width:190px}
+.ft-tab.activo{background:#fff;color:var(--text);font-weight:600;border-color:var(--blue);box-shadow:0 -2px 0 var(--blue) inset}
+.ft-tab span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ft-x{font-size:15px;line-height:1;color:var(--muted)}
+.ft-x:hover{color:var(--red)}
+.ft-nueva{font-size:16px;font-weight:700;color:var(--blue);justify-content:center;min-width:34px;background:transparent;border-color:transparent}
 .modal{background:#fff;border-radius:16px;padding:24px;width:100%;max-width:680px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,0.2)}
 .modal-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:20px;color:var(--text)}
 
@@ -477,7 +486,7 @@ table.dt th:first-child{padding-left:14px}
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn-accion btn-accion-import" onclick="showModal('modal-importar-facturas')">↑ Importar</button>
             <button class="btn-accion btn-accion-search" onclick="document.getElementById('buscar-resultados').innerHTML='';document.getElementById('edit-factura-section').classList.add('hidden');showModal('modal-buscar-factura')">🔍 Buscar</button>
-            <button class="btn-accion btn-accion-new" onclick="showModal('modal-factura')">+ Nueva factura</button>
+            <button class="btn-accion btn-accion-new" onclick="abrirTabFactura(null)">+ Nueva factura</button>
           </div>
         </div>
         <div id="filtro-facturas-bar" style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 14px;display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px">
@@ -1017,6 +1026,7 @@ table.dt th:first-child{padding-left:14px}
 
 <div class="modal-overlay hidden" id="modal-factura">
   <div class="modal">
+    <div id="ft-tabs" class="ft-tabs"></div>
     <div class="modal-title">Nueva factura</div>
     <div class="form-section">
       <div class="form-section-title" style="border:none;padding-bottom:0;margin-bottom:12px">Encabezado</div>
@@ -1054,7 +1064,7 @@ table.dt th:first-child{padding-left:14px}
     <div id="fc-ret-group" style="display:none"><label class="fl">RETENCIÓN RECIBIDA ($)</label><input type="number" class="fi" id="fc-ret" placeholder="0.00" step="0.01" style="max-width:200px"></div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
       <button class="btn btn-danger btn-sm hidden" id="btn-eliminar-factura-edicion" onclick="eliminarFacturaDesdeEdicion2()">Eliminar</button>
-      <button class="btn btn-ghost" onclick="resetModalFactura();hideModal('modal-factura')">Cancelar</button>
+      <button class="btn btn-ghost" onclick="cerrarFacturaTab(facturaTabActiva)">Cancelar</button>
       <button class="btn btn-ghost" onclick="limpiarFormularioFactura()" style="color:var(--red);border-color:#FECACA">🗑 Limpiar</button>
       <button class="btn btn-primary" id="btn-guardar-factura" onclick="guardarFactura()">Guardar factura</button>
     </div>
@@ -3223,7 +3233,7 @@ if(pvNombre&&!pvExistente){
   const {data:insertados,error}=await sb.from('facturas').insert(rows).select();
   if(error){alert('Error: '+error.message);return;}
   if(esC){await generarAsientoCompra(id,insertados||[],cpId,itbmsCta,itbmsTotal);}
-  hideModal('modal-factura');lineasFactura=[];
+  cerrarFacturaTab(facturaTabActiva);lineasFactura=[];
 document.getElementById('fc-prov').value='';
 document.getElementById('fc-ruc').value='';
 document.getElementById('fc-dv').value='';
@@ -3285,14 +3295,12 @@ function buscarFacturaNF() {
 
 let facturaEditandoId=null;
 
-function abrirEdicionFactura(id){
+function abrirEdicionFactura(id){ abrirTabFactura(id); }
+function cargarFacturaEnForm(id){
   const f=facturas.find(x=>x.id===id);
   if(!f)return;
   facturaEditandoId=id;
 
-  // Usar showModal para inicializar el modal-factura limpiamente
-  // Pero marcar como edición para no limpiar los campos
-  document.getElementById('modal-factura').classList.remove('hidden');
   updateProvDatalist();
 
   // Precargar encabezado
@@ -3350,11 +3358,80 @@ async function guardarEdicionFacturaDesdeModal(){
   }).eq('id',facturaEditandoId);
   if(error){alert('Error: '+error.message);return;}
   resetModalFactura();
-  hideModal('modal-factura');
+  cerrarFacturaTab(facturaTabActiva);
   await loadFacturas(clienteActivo?.id||usuario.cliente_id);
   renderPage('facturas');
 }
 
+let facturaTabs=[],facturaTabActiva=null,ftSeq=1;
+function gv(id){const e=document.getElementById(id);return e?e.value:'';}
+function sv(id,v){const e=document.getElementById(id);if(e)e.value=(v==null?'':v);}
+function snapshotFacturaForm(){
+  return {prov:gv('fc-prov'),ruc:gv('fc-ruc'),dv:gv('fc-dv'),fecha:gv('fc-fecha'),tipo:gv('fc-tipo'),mes:gv('fc-mes'),
+    contrapartida:gv('fc-contrapartida'),lineas:JSON.parse(JSON.stringify(lineasFactura||[])),editandoId:facturaEditandoId};
+}
+function restoreFacturaForm(s){
+  if(!s)return;
+  sv('fc-prov',s.prov);sv('fc-ruc',s.ruc);sv('fc-dv',s.dv);sv('fc-fecha',s.fecha);sv('fc-tipo',s.tipo);sv('fc-mes',s.mes);
+  lineasFactura=JSON.parse(JSON.stringify(s.lineas||[]));
+  facturaEditandoId=s.editandoId||null;
+  const tit=document.querySelector('#modal-factura .modal-title');
+  const btn=document.querySelector('#modal-factura .btn-primary');
+  const elim=document.getElementById('btn-eliminar-factura-edicion');
+  if(facturaEditandoId){ if(tit)tit.textContent='Editar factura'; if(btn){btn.textContent='Guardar cambios';btn.setAttribute('onclick','guardarEdicionFacturaDesdeModal()');} if(elim)elim.classList.remove('hidden'); }
+  else { if(tit)tit.textContent='Nueva factura'; if(btn){btn.textContent='Guardar factura';btn.setAttribute('onclick','guardarFactura()');} if(elim)elim.classList.add('hidden'); }
+  renderLineas();
+  sv('fc-contrapartida',s.contrapartida||'');
+}
+function nuevaFacturaEnForm(){
+  updateProvDatalist();
+  lineasFactura=[{nf:'',concepto:'',detalle:'',clasificacion_id:'',cuenta_id:'',gravable:'',exento:'',itbms:''}];
+  facturaEditandoId=null;
+  ['fc-prov','fc-ruc','fc-dv','fc-fecha'].forEach(x=>sv(x,''));
+  sv('fc-contrapartida','');
+  const rg=document.getElementById('fc-ret-group');if(rg)rg.style.display='none';
+  resetModalFactura();
+  renderLineas();
+}
+function guardarSnapshotTabActivo(){
+  const t=facturaTabs.find(x=>x.key===facturaTabActiva);
+  if(t)t.snapshot=snapshotFacturaForm();
+}
+function abrirTabFactura(id){
+  if(id){ const ex=facturaTabs.find(t=>t.editandoId===id); if(ex){ document.getElementById('modal-factura').classList.remove('hidden'); activarFacturaTab(ex.key); return; } }
+  guardarSnapshotTabActivo();
+  const key='ft'+(ftSeq++);
+  const titulo = id ? ('Fact '+(((facturas.find(f=>f.id===id)||{}).numero_factura)||'#')) : 'Nueva';
+  facturaTabs.push({key,editandoId:id||null,titulo,snapshot:null});
+  facturaTabActiva=key;
+  document.getElementById('modal-factura').classList.remove('hidden');
+  if(id) cargarFacturaEnForm(id); else nuevaFacturaEnForm();
+  guardarSnapshotTabActivo();
+  renderFacturaTabs();
+}
+function activarFacturaTab(key){
+  if(key===facturaTabActiva){renderFacturaTabs();return;}
+  guardarSnapshotTabActivo();
+  facturaTabActiva=key;
+  const t=facturaTabs.find(x=>x.key===key);
+  restoreFacturaForm(t&&t.snapshot);
+  renderFacturaTabs();
+}
+function cerrarFacturaTab(key){
+  const idx=facturaTabs.findIndex(t=>t.key===key);
+  if(idx<0){document.getElementById('modal-factura').classList.add('hidden');return;}
+  const eraActiva=(key===facturaTabActiva);
+  facturaTabs.splice(idx,1);
+  if(facturaTabs.length===0){ facturaTabActiva=null; document.getElementById('modal-factura').classList.add('hidden'); renderFacturaTabs(); return; }
+  if(eraActiva){ const next=facturaTabs[Math.max(0,idx-1)]; facturaTabActiva=next.key; restoreFacturaForm(next.snapshot); }
+  renderFacturaTabs();
+}
+function renderFacturaTabs(){
+  const el=document.getElementById('ft-tabs'); if(!el)return;
+  if(!facturaTabs.length){ el.innerHTML=''; return; }
+  el.innerHTML=facturaTabs.map(t=>'<div class="ft-tab'+(t.key===facturaTabActiva?' activo':'')+'" onclick="activarFacturaTab(\''+t.key+'\')"><span>'+(t.titulo||'Factura')+'</span><span class="ft-x" onclick="event.stopPropagation();cerrarFacturaTab(\''+t.key+'\')">×</span></div>').join('')
+    +'<div class="ft-tab ft-nueva" title="Nueva factura" onclick="abrirTabFactura(null)">+</div>';
+}
 function resetModalFactura(){
   facturaEditandoId=null;
   document.querySelector('#modal-factura .modal-title').textContent='Nueva factura';
@@ -3417,7 +3494,7 @@ async function eliminarFacturaDesdeEdicion2(){
   if(!facturaEditandoId||!confirm('¿Eliminar esta factura permanentemente?'))return;
   await sb.from('facturas').delete().eq('id',facturaEditandoId);
   resetModalFactura();
-  hideModal('modal-factura');
+  cerrarFacturaTab(facturaTabActiva);
   await loadFacturas(clienteActivo?.id||usuario.cliente_id);
   renderPage('facturas');
 }
