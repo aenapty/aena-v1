@@ -908,6 +908,22 @@ table.dt th:first-child{padding-left:14px}
       </div>
 
 <!-- MODALS -->
+<!-- Modal: Detalle de cliente (super admin) -->
+<div class="modal-overlay hidden" id="modal-cliente-detalle">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-title" id="dc-nombre">Detalle del cliente</div>
+    <div class="form-section">
+      <div id="dc-generales" style="font-size:13px;color:var(--muted);margin-bottom:8px"></div>
+      <div style="font-size:13px;margin-bottom:16px"><strong>Módulos activos:</strong> <span id="dc-modulos">—</span></div>
+      <div class="form-section-title" style="margin-bottom:10px">Usuarios y correos</div>
+      <div class="tbl-wrap" id="dc-usuarios"></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-top:14px">
+      <button class="btn btn-primary btn-sm" onclick="hideModal('modal-cliente-detalle')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: Cuenta contable -->
 <div class="modal-overlay hidden" id="modal-cuenta">
   <div class="modal">
@@ -5042,9 +5058,33 @@ async function renderSAClientes(){
         <div style="font-size:11px;color:var(--muted);margin-top:2px">RUC: ${c.ruc||'—'} ${c.dv?'DV: '+c.dv:''}</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">${chips}</div>
       </div>
-      <button class="btn btn-outline btn-sm" onclick="abrirEditarCliente('${c.id}')">Editar</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="verDetalleCliente('${c.id}')">Ver detalles</button>
+        <button class="btn btn-outline btn-sm" onclick="abrirEditarCliente('${c.id}')">Editar</button>
+      </div>
     </div>`;
   }).join('')||'<div style="color:var(--muted);font-size:13px;padding:12px 0">No hay clientes registrados.</div>';
+}
+
+async function verDetalleCliente(id){
+  const c=todosClientes.find(x=>x.id===id); if(!c)return;
+  document.getElementById('dc-nombre').textContent=c.nombre;
+  document.getElementById('dc-generales').innerHTML='RUC: '+(c.ruc||'—')+(c.dv?'  ·  DV: '+c.dv:'');
+  document.getElementById('dc-modulos').textContent='Cargando…';
+  const cont=document.getElementById('dc-usuarios');
+  cont.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px">Cargando usuarios…</div>';
+  showModal('modal-cliente-detalle');
+  // Módulos activos
+  try{
+    const {data:mods}=await sb.from('cliente_modulos').select('modulo').eq('cliente_id',id).eq('activo',true);
+    document.getElementById('dc-modulos').textContent=(mods||[]).map(m=>MOD_NOMBRES[m.modulo]||m.modulo).join(', ')||'Ninguno';
+  }catch(e){document.getElementById('dc-modulos').textContent='—';}
+  // Usuarios y correos
+  const {data:us,error}=await sb.from('usuarios').select('nombre,email,rol').eq('cliente_id',id).order('rol');
+  if(error){cont.innerHTML='<div style="color:var(--red);font-size:12px;padding:8px">No se pudieron cargar los usuarios.</div>';return;}
+  cont.innerHTML=(us&&us.length)
+    ? '<table class="dt" style="min-width:320px"><thead><tr><th>NOMBRE</th><th>CORREO</th><th>ROL</th></tr></thead><tbody>'+us.map(u=>'<tr><td>'+(u.nombre||'—')+'</td><td style="font-weight:500">'+(u.email||'—')+'</td><td><span class="tag '+(u.rol==='super_admin'?'tag-purple':'tag-blue')+'">'+(u.rol||'—')+'</span></td></tr>').join('')+'</tbody></table>'
+    : '<div style="color:var(--muted);font-size:12px;padding:8px">Este cliente no tiene usuarios registrados todavía.</div>';
 }
 
 async function toggleModulo(clienteId,modulo,nuevoEstado,el){
