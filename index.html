@@ -431,6 +431,7 @@ table.dt th:first-child{padding-left:14px}
         <div class="module-name" id="sidebar-module-name">AENA Tax</div>
         <div class="module-sub" id="sidebar-module-sub">MÓDULO FISCAL</div>
       </div>
+      <div id="sidebar-module-switch" style="padding:0 14px 8px"></div>
       <div class="nav-divider"></div>
       <div id="nav-container"></div>
       <div class="sidebar-footer">
@@ -1612,7 +1613,8 @@ let tiposPermisoConfig=[];
 let tiposGoce=[],tiposReposicionConfig=[];
 let selMes=new Date().getMonth()+1,filtroMes='todos',filtroTipo='todos';
 let moduloActivo=null,lineasFactura=[],csvFP=[],csvCP=[],csvMP=[];
-let cuentas=[],asientos=[],facturasIngreso=[],lineasAsiento=[],cuentaEditandoId=null,facIngEditandoId=null;
+let cuentas=[],asientos=[],facturasIngreso=[],lineasAsiento=[],cuentaEditandoId=null,facIngEditandoId=null,modulosCliente=[];
+const MOD_NOMBRES={itbms:'ITBMS',isr:'ISR',rrhh:'RRHH',contable:'Contable'};
 
 // Inject logos
 document.getElementById('loading-logo').innerHTML=logoWithText(44,true);
@@ -1649,15 +1651,17 @@ async function loadUser(authUser){
 async function detectModulo(){
   if(!clienteActivo) return;
   const id=clienteActivo.id;
-  if(id==='33333333-3333-3333-3333-333333333333'){moduloActivo='rrhh';return;}
-  if(id==='22222222-2222-2222-2222-222222222222'){moduloActivo='isr';return;}
-  // Determina si el cliente ACTIVO tiene el módulo contable activo (también para super_admin)
+  if(id==='33333333-3333-3333-3333-333333333333'){moduloActivo='rrhh';modulosCliente=['rrhh'];return;}
+  if(id==='22222222-2222-2222-2222-222222222222'){moduloActivo='isr';modulosCliente=['isr'];return;}
+  // Determina los módulos activos del cliente ACTIVO (también para super_admin)
   let mods=modulos;
   if(usuario?.rol==='super_admin'){
     try{const {data}=await sb.from('cliente_modulos').select('modulo').eq('cliente_id',id).eq('activo',true);mods=data||[];}catch(e){mods=[];}
   }
-  if(mods.some(m=>m.modulo==='contable')) moduloActivo='contable';
-  else moduloActivo=modulos[0]?.modulo||'itbms';
+  modulosCliente=(mods||[]).map(m=>m.modulo);
+  if(!modulosCliente.length) modulosCliente=[modulos[0]?.modulo||'itbms'];
+  if(modulosCliente.includes('contable')) moduloActivo='contable';
+  else moduloActivo=modulosCliente[0]||'itbms';
 }
 
 async function loadTodo(){
@@ -1918,6 +1922,26 @@ function buildNav(){
   if(isR){h+='<div class="nav-section">PERSONAL</div>'+ni('colaboradores','◉','Colaboradores')+ni('movimientos','↕','Movimientos')+'<div class="nav-section">SOLICITUDES</div>'+ni('solicitudes','📨','Solicitudes')+'<div class="nav-section">REPORTES</div>'+ni('saldos','▤','Saldos y reportes');}
   h+='<div class="nav-section">SISTEMA</div>'+ni('config','⚙','Configuración');
   document.getElementById('nav-container').innerHTML=h;
+  renderModuleSwitch();
+}
+function renderModuleSwitch(){
+  const el=document.getElementById('sidebar-module-switch');
+  if(!el)return;
+  if(!modulosCliente||modulosCliente.length<2){el.innerHTML='';return;}
+  el.innerHTML='<div style="display:flex;gap:4px;flex-wrap:wrap">'+modulosCliente.map(m=>
+    '<button onclick="switchModulo(\''+m+'\')" style="flex:1;min-width:58px;padding:5px 6px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid rgba(255,255,255,0.15);'+
+    (m===moduloActivo?'background:rgba(255,255,255,0.18);color:#fff':'background:transparent;color:rgba(255,255,255,0.55)')+'">'+(MOD_NOMBRES[m]||m)+'</button>'
+  ).join('')+'</div>';
+}
+async function switchModulo(m){
+  if(m===moduloActivo||!clienteActivo)return;
+  moduloActivo=m;
+  document.getElementById('loading')?.classList.remove('hidden');
+  try{await loadTodo();}catch(e){console.error(e);}
+  updateUI();
+  buildNav();
+  goPage('dashboard');
+  document.getElementById('loading')?.classList.add('hidden');
 }
 function ni(p,icon,label){return '<div class="nav-item" id="nav-'+p+'" onclick="goPage(\''+p+'\')"><span class="nav-icon">'+icon+'</span>'+label+'</div>';}
 
