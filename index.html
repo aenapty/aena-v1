@@ -943,6 +943,9 @@ table.dt th:first-child{padding-left:14px}
         <div><label class="fl">ACEPTA MOVIMIENTOS</label><select class="fi" id="mc-mov">
           <option value="true">Sí (cuenta de movimiento)</option><option value="false">No (grupo/encabezado)</option>
         </select></div>
+        <div><label class="fl">¿ES LA CUENTA DE ITBMS?</label><select class="fi" id="mc-itbms">
+          <option value="false">No</option><option value="true">Sí (crédito fiscal de compras)</option>
+        </select></div>
       </div>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
         <button class="btn btn-ghost btn-sm" onclick="hideModal('modal-cuenta')">Cancelar</button>
@@ -1024,6 +1027,7 @@ table.dt th:first-child{padding-left:14px}
 <div><label class="fl">RUC / CÉDULA</label><input type="text" class="fi" id="fc-ruc" placeholder="RUC-000-000-0" onblur="validarRucEnFormulario()"></div>
 <div><label class="fl">DV</label><input type="text" class="fi" id="fc-dv" placeholder="00" maxlength="2" style="max-width:80px"></div>     
         <div><label class="fl">TIPO</label><select class="fi" id="fc-tipo"><option>Bien</option><option>Servicio</option><option>Mixto</option></select></div>
+        <div class="fg-full" id="fc-contrapartida-group" style="display:none"><label class="fl">¿CÓMO SE PAGÓ? (CONTRAPARTIDA)</label><select class="fi" id="fc-contrapartida"></select><div style="font-size:10px;color:var(--muted);margin-top:4px">El ITBMS se manda automáticamente a la cuenta de ITBMS. Aquí eliges si la factura se pagó (Caja/Banco) o quedó como Cuenta por Pagar.</div></div>
       </div>
     </div>
     <div class="form-section">
@@ -3131,6 +3135,17 @@ function renderLineas(){
   const esC=moduloActivo==='contable';
   document.getElementById('itbms-col-label').textContent=esISR?'IMPUESTO':'ITBMS';
   const colLbl=document.getElementById('clasif-col-label');if(colLbl)colLbl.textContent=esC?'CUENTA CONTABLE':'CLASIFICACIÓN';
+  const cpGroup=document.getElementById('fc-contrapartida-group');
+  if(cpGroup){
+    cpGroup.style.display=esC?'block':'none';
+    if(esC){
+      const cpSel=document.getElementById('fc-contrapartida');
+      const prev=cpSel.value;
+      const movs=cuentas.filter(c=>c.es_movimiento&&c.activo!==false);
+      cpSel.innerHTML='<option value="">— Selecciona cómo se pagó —</option>'+movs.map(c=>'<option value="'+c.id+'">'+c.numero_cuenta+' · '+c.nombre+'</option>').join('');
+      if(prev)cpSel.value=prev;
+    }
+  }
   const lista=esC
     ? cuentas.filter(c=>c.es_movimiento&&c.activo!==false).map(c=>({id:c.id,nombre:c.numero_cuenta+' · '+c.nombre}))
     : clasificaciones.filter(c=>c.modulo===moduloActivo).map(c=>({id:c.id,nombre:c.nombre}));
@@ -3163,6 +3178,17 @@ function updateTotalItbms(){
 async function guardarFactura(){
   if(!lineasFactura.length){alert('Agrega al menos una línea');return;}
   const id=clienteActivo?.id;
+  const esC=moduloActivo==='contable';
+  let cpId='',itbmsCta=null,itbmsTotal=0;
+  if(esC){
+    cpId=document.getElementById('fc-contrapartida').value;
+    itbmsTotal=lineasFactura.reduce((a,l)=>a+(parseFloat(l.itbms)||0),0);
+    itbmsCta=cuentas.find(c=>c.es_itbms)||cuentas.find(c=>c.numero_cuenta==='1105');
+    const hayGasto=lineasFactura.some(l=>l.cuenta_id&&((parseFloat(l.gravable)||0)+(parseFloat(l.exento)||0))>0);
+    if(!hayGasto){alert('Agrega al menos una línea con cuenta contable y monto.');return;}
+    if(!cpId){alert('Elige cómo se pagó la factura (Caja, Banco o Cuentas por Pagar) en el encabezado.');return;}
+    if(itbmsTotal>0&&!itbmsCta){alert('Primero marca cuál cuenta es la de ITBMS en el Plan de cuentas (editar cuenta → "¿Es la cuenta de ITBMS?").');return;}
+  }
   const mes=parseInt(document.getElementById('fc-mes').value);
 const rows=lineasFactura.map((l,idx)=>({
   cliente_id:id,modulo:moduloActivo,anio,mes,
@@ -3174,11 +3200,11 @@ const rows=lineasFactura.map((l,idx)=>({
   detalle:l.detalle||null,
   numero_factura:l.nf||null,
   clasificacion_id:l.clasificacion_id||null,
-  ...(moduloActivo==='contable'?{cuenta_id:l.cuenta_id||null}:{}),
+  ...(esC?{cuenta_id:l.cuenta_id||null}:{}),
   monto_gravable:parseFloat(l.gravable)||0,
   monto_exento:parseFloat(l.exento)||0,
   itbms_calculado:(parseFloat(l.gravable)||0)*0.07,
-  itbms_factura:parseFloat(l.itbms)||(parseFloat(l.gravable)||0)*0.07,
+  itbms_factura:esC?(parseFloat(l.itbms)||0):(parseFloat(l.itbms)||(parseFloat(l.gravable)||0)*0.07),
   retencion:0,
   tipo:document.getElementById('fc-tipo').value,
 }));
@@ -3188,15 +3214,46 @@ const pvDv=document.getElementById('fc-dv').value;
 if(pvNombre&&!proveedores.find(p=>p.nombre===pvNombre)){
   await guardarProveedorNuevo(pvNombre,pvRuc,pvDv);
 }
-  const {error}=await sb.from('facturas').insert(rows);
+  const {data:insertados,error}=await sb.from('facturas').insert(rows).select();
   if(error){alert('Error: '+error.message);return;}
-  hideModal('modal-factura');lineas=[];
+  if(esC){await generarAsientoCompra(id,insertados||[],cpId,itbmsCta,itbmsTotal);}
+  hideModal('modal-factura');lineasFactura=[];
 document.getElementById('fc-prov').value='';
 document.getElementById('fc-ruc').value='';
 document.getElementById('fc-dv').value='';
 document.getElementById('fc-fecha').value='';
-document.getElementById('fc-ret').value='';
+const cpEl=document.getElementById('fc-contrapartida');if(cpEl)cpEl.value='';
+const retEl=document.getElementById('fc-ret');if(retEl)retEl.value='';
 document.getElementById('fc-mes').value='1';await loadFacturas(id);renderPage('facturas');
+}
+
+async function generarAsientoCompra(clienteId,facturaRows,contrapartidaId,itbmsCta,itbmsTotal){
+  try{
+    const fecha=document.getElementById('fc-fecha').value||new Date().toISOString().slice(0,10);
+    const provNombre=document.getElementById('fc-prov').value||'';
+    const prov=proveedores.find(p=>p.nombre===provNombre);
+    const numero=(lineasFactura.find(l=>l.nf)||{}).nf||(facturaRows[0]||{}).numero_factura||'';
+    const lineas=[];
+    lineasFactura.forEach(l=>{
+      const base=(parseFloat(l.gravable)||0)+(parseFloat(l.exento)||0);
+      if(l.cuenta_id&&base>0) lineas.push({cuenta_id:l.cuenta_id,debe:Math.round(base*100)/100,haber:0,descripcion:l.detalle||l.concepto||null});
+    });
+    if(itbmsTotal>0&&itbmsCta) lineas.push({cuenta_id:itbmsCta.id,debe:Math.round(itbmsTotal*100)/100,haber:0,descripcion:'ITBMS crédito fiscal'});
+    const totalDebe=Math.round(lineas.reduce((a,x)=>a+x.debe,0)*100)/100;
+    lineas.push({cuenta_id:contrapartidaId,debe:0,haber:totalDebe,descripcion:'Pago / contrapartida'});
+    const {data:asi,error:e1}=await sb.from('asientos').insert({
+      cliente_id:clienteId,fecha,
+      descripcion:'Compra '+(provNombre||'')+(numero?(' · Fact '+numero):''),
+      referencia:numero||null,proveedor_id:prov?.id||null,tipo:'factura',
+      origen_tabla:'facturas',origen_id:(facturaRows[0]||{}).id||null
+    }).select().single();
+    if(e1){console.error('asiento:',e1);return;}
+    const filas=lineas.map((x,idx)=>({asiento_id:asi.id,cliente_id:clienteId,cuenta_id:x.cuenta_id,proveedor_id:prov?.id||null,descripcion:x.descripcion,debe:x.debe||0,haber:x.haber||0,orden:idx}));
+    await sb.from('asiento_lineas').insert(filas);
+    const ids=facturaRows.map(r=>r.id).filter(Boolean);
+    if(ids.length){try{await sb.from('facturas').update({asiento_id:asi.id}).in('id',ids);}catch(e){}}
+    await loadAsientos(clienteId);
+  }catch(e){console.error('No se pudo generar el asiento:',e);}
 }
 
 function buscarFacturaNF() {
@@ -5241,6 +5298,7 @@ function abrirNuevaCuenta(){
   document.getElementById('mc-tipo').value='gasto';
   document.getElementById('mc-naturaleza').value='deudora';
   document.getElementById('mc-mov').value='true';
+  document.getElementById('mc-itbms').value='false';
   showModal('modal-cuenta');
 }
 function abrirEdicionCuenta(id){
@@ -5252,6 +5310,7 @@ function abrirEdicionCuenta(id){
   document.getElementById('mc-tipo').value=c.tipo||'gasto';
   document.getElementById('mc-naturaleza').value=c.naturaleza||'deudora';
   document.getElementById('mc-mov').value=String(c.es_movimiento!==false);
+  document.getElementById('mc-itbms').value=String(c.es_itbms===true);
   showModal('modal-cuenta');
 }
 async function guardarCuenta(){
@@ -5259,10 +5318,14 @@ async function guardarCuenta(){
   const numero=document.getElementById('mc-numero').value.trim();
   const nombre=document.getElementById('mc-nombre').value.trim();
   if(!numero||!nombre){alert('Número y nombre son obligatorios');return;}
+  const esItbms=document.getElementById('mc-itbms').value==='true';
   const payload={cliente_id:id,numero_cuenta:numero,nombre,
     tipo:document.getElementById('mc-tipo').value,
     naturaleza:document.getElementById('mc-naturaleza').value,
-    es_movimiento:document.getElementById('mc-mov').value==='true'};
+    es_movimiento:document.getElementById('mc-mov').value==='true',
+    es_itbms:esItbms};
+  // Solo una cuenta puede ser la de ITBMS: si esta lo es, desmarca las demás
+  if(esItbms){try{await sb.from('cuentas_contables').update({es_itbms:false}).eq('cliente_id',id).eq('es_itbms',true);}catch(e){}}
   let error;
   if(cuentaEditandoId){({error}=await sb.from('cuentas_contables').update(payload).eq('id',cuentaEditandoId));}
   else{({error}=await sb.from('cuentas_contables').insert(payload));}
@@ -5353,8 +5416,10 @@ function renderAsientos(){
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <div><span style="font-weight:700">Asiento #${a.numero||'—'}</span>
           <span style="color:var(--muted);margin-left:8px;font-size:12px">${a.fecha||''}</span>
-          ${a.proveedores?'<span class="tag tag-blue" style="margin-left:8px">'+a.proveedores.nombre+'</span>':''}</div>
-        <div><span style="font-weight:700;margin-right:10px">${fmt(td)}</span>
+          ${a.proveedores?'<span class="tag tag-blue" style="margin-left:8px">'+a.proveedores.nombre+'</span>':''}
+          ${a.tipo==='factura'?'<span class="tag tag-green" style="margin-left:6px">desde factura</span>':''}</div>
+        <div>${(a.tipo==='factura'&&a.origen_id)?'<button class="btn btn-ghost btn-sm" onclick="irAOrigenAsiento(\''+(a.origen_tabla||'facturas')+'\',\''+a.origen_id+'\')">Ver origen →</button>':''}
+          <span style="font-weight:700;margin:0 10px">${fmt(td)}</span>
           <button class="btn btn-danger" onclick="eliminarAsiento('${a.id}')">&#215;</button></div>
       </div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:6px">${a.descripcion||''}${a.referencia?(' · Ref: '+a.referencia):''}</div>
@@ -5421,6 +5486,12 @@ async function eliminarAsiento(id){
   if(!confirm('¿Eliminar este asiento y sus líneas?'))return;
   await sb.from('asientos').delete().eq('id',id);
   await loadAsientos(clienteActivo.id);renderAsientos();
+}
+function irAOrigenAsiento(tabla,oid){
+  if(tabla==='facturas'&&oid){
+    goPage('facturas');
+    setTimeout(()=>{ if(facturas.find(f=>f.id===oid)) abrirEdicionFactura(oid); else alert('La factura de origen ya no existe o fue eliminada.'); },120);
+  }
 }
 
 /* ---------- Motor de reportes (deriva del libro) ---------- */
