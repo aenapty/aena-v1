@@ -1023,7 +1023,7 @@ table.dt th:first-child{padding-left:14px}
       <div class="fg">
         <div style="display:none"><label class="fl">MES</label><select class="fi" id="fc-mes"><option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option><option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option><option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option><option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option></select></div>
         <div><label class="fl">FECHA</label><input type="date" class="fi" id="fc-fecha" oninput="autoMesDesdefecha(this.value)"></div>
-        <div class="fg-full"><label class="fl">PROVEEDOR</label><input type="text" class="fi" id="fc-prov" placeholder="Nombre del proveedor" list="prov-datalist" oninput="autofillProveedor()"><datalist id="prov-datalist"></datalist></div>
+        <div class="fg-full"><label class="fl">PROVEEDOR</label><div style="display:flex;gap:6px"><input type="text" class="fi" id="fc-prov" placeholder="Nombre del proveedor" list="prov-datalist" oninput="autofillProveedor()" style="flex:1"><button type="button" class="btn btn-outline btn-sm" onclick="nuevoProveedorDesdeFactura()" style="white-space:nowrap">+ Nuevo</button></div><datalist id="prov-datalist"></datalist></div>
 <div><label class="fl">RUC / CÉDULA</label><input type="text" class="fi" id="fc-ruc" placeholder="RUC-000-000-0" onblur="validarRucEnFormulario()"></div>
 <div><label class="fl">DV</label><input type="text" class="fi" id="fc-dv" placeholder="00" maxlength="2" style="max-width:80px"></div>     
         <div><label class="fl">TIPO</label><select class="fi" id="fc-tipo"><option>Bien</option><option>Servicio</option><option>Mixto</option></select></div>
@@ -3142,7 +3142,8 @@ function renderLineas(){
       const cpSel=document.getElementById('fc-contrapartida');
       const prev=cpSel.value;
       const movs=cuentas.filter(c=>c.es_movimiento&&c.activo!==false);
-      cpSel.innerHTML='<option value="">— Selecciona cómo se pagó —</option>'+movs.map(c=>'<option value="'+c.id+'">'+c.numero_cuenta+' · '+c.nombre+'</option>').join('');
+      cpSel.innerHTML='<option value="">— Selecciona cómo se pagó —</option>'+movs.map(c=>'<option value="'+c.id+'">'+c.numero_cuenta+' · '+c.nombre+'</option>').join('')+'<option value="__nueva__">+ Agregar cuenta…</option>';
+      cpSel.onchange=function(){ if(this.value==='__nueva__'){ this.value=prev||''; abrirNuevaCuenta(); } };
       if(prev)cpSel.value=prev;
     }
   }
@@ -3156,7 +3157,7 @@ function renderLineas(){
   '<div style="display:grid;grid-template-columns:110px 1fr 1.3fr 85px 85px 85px 28px;gap:6px;align-items:center;padding:7px 0;border-bottom:.5px solid var(--border)">'+
   '<input type="text" class="fi" placeholder="N° factura" value="'+(l.nf||'')+'" oninput="lineasFactura['+i+'].nf=this.value" style="font-size:11px">'+
   '<input type="text" class="fi" placeholder="Detalle del gasto" value="'+(l.detalle||'')+'" oninput="lineasFactura['+i+'].detalle=this.value;lineasFactura['+i+'].concepto=this.value" style="font-size:11px">'+
-  '<select class="fi" onchange="lineasFactura['+i+'].'+bindField+'=this.value" style="font-size:11px">'+optsFor(esC?(l.cuenta_id||''):(l.clasificacion_id||''))+'</select>'+
+  '<select class="fi" onchange="'+(esC?'onCuentaLineaChange('+i+',this.value)':'lineasFactura['+i+'].clasificacion_id=this.value')+'" style="font-size:11px">'+optsFor(esC?(l.cuenta_id||''):(l.clasificacion_id||''))+(esC?'<option value="__nueva__">+ Agregar cuenta…</option>':'')+'</select>'+
   '<input type="number" class="fi" placeholder="0.00" value="'+(l.gravable||'')+'" step="0.01" oninput="lineasFactura['+i+'].gravable=this.value;autoItbms('+i+')" style="font-size:11px">'+
   '<input type="number" class="fi" placeholder="0.00" value="'+(l.exento||'')+'" step="0.01" oninput="lineasFactura['+i+'].exento=this.value" style="font-size:11px">'+
   '<input type="number" class="fi" placeholder="0.00" value="'+(l.itbms||'')+'" step="0.01" id="itbms-linea-'+i+'" oninput="lineasFactura['+i+'].itbms=this.value;updateTotalItbms()" style="font-size:11px">'+
@@ -3211,8 +3212,13 @@ const rows=lineasFactura.map((l,idx)=>({
 const pvNombre=document.getElementById('fc-prov').value;
 const pvRuc=document.getElementById('fc-ruc').value;
 const pvDv=document.getElementById('fc-dv').value;
-if(pvNombre&&!proveedores.find(p=>p.nombre===pvNombre)){
+const pvExistente=proveedores.find(p=>p.nombre===pvNombre);
+if(pvNombre&&!pvExistente){
   await guardarProveedorNuevo(pvNombre,pvRuc,pvDv);
+} else if(pvExistente&&pvRuc&&(pvExistente.ruc||'')!==pvRuc){
+  // El proveedor existía sin RUC (o con otro): se guarda el que ingresaste
+  await sb.from('proveedores').update({ruc:pvRuc,dv:pvDv||pvExistente.dv||null}).eq('id',pvExistente.id);
+  await loadProveedores(id);
 }
   const {data:insertados,error}=await sb.from('facturas').insert(rows).select();
   if(error){alert('Error: '+error.message);return;}
@@ -3821,6 +3827,13 @@ async function guardarClasificacion(){
   hideModal('modal-clasificacion');await loadClasificaciones(id);renderConfig();
 }
 
+function nuevoProveedorDesdeFactura(){
+  document.getElementById('pv-nombre').value=document.getElementById('fc-prov').value||'';
+  document.getElementById('pv-ruc').value=document.getElementById('fc-ruc').value||'';
+  document.getElementById('pv-dv').value=document.getElementById('fc-dv').value||'';
+  document.getElementById('modal-proveedor').style.zIndex='200';
+  showModal('modal-proveedor');
+}
 async function guardarProveedorManual(){
   const nombre=document.getElementById('pv-nombre').value.trim();
   const ruc=document.getElementById('pv-ruc').value.trim();
@@ -3837,6 +3850,11 @@ async function guardarProveedorManual(){
   document.getElementById('pv-ruc').value='';
   document.getElementById('pv-dv').value='';
   hideModal('modal-proveedor');
+  if(!document.getElementById('modal-factura').classList.contains('hidden')){
+    document.getElementById('fc-prov').value=data.nombre;
+    const r=document.getElementById('fc-ruc');if(r)r.value=data.ruc||'';
+    const d=document.getElementById('fc-dv');if(d)d.value=data.dv||'';
+  }
   renderConfig();
 }
 
@@ -5290,6 +5308,10 @@ function renderPlanCuentas(){
     </td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">Sin cuentas. Usa “+ Nueva cuenta”.</td></tr>';
 }
 function mcAutoNaturaleza(){const t=document.getElementById('mc-tipo').value;document.getElementById('mc-naturaleza').value=naturalezaDe(t);}
+function onCuentaLineaChange(i,val){
+  if(val==='__nueva__'){ renderLineas(); abrirNuevaCuenta(); return; }
+  lineasFactura[i].cuenta_id=val;
+}
 function abrirNuevaCuenta(){
   cuentaEditandoId=null;
   document.getElementById('mc-title').textContent='Nueva cuenta';
@@ -5299,6 +5321,7 @@ function abrirNuevaCuenta(){
   document.getElementById('mc-naturaleza').value='deudora';
   document.getElementById('mc-mov').value='true';
   document.getElementById('mc-itbms').value='false';
+  document.getElementById('modal-cuenta').style.zIndex='200';
   showModal('modal-cuenta');
 }
 function abrirEdicionCuenta(id){
@@ -5332,6 +5355,7 @@ async function guardarCuenta(){
   if(error){alert('Error: '+error.message);return;}
   hideModal('modal-cuenta');
   await loadCuentas(id);renderPlanCuentas();
+  if(!document.getElementById('modal-factura').classList.contains('hidden')) renderLineas();
 }
 async function eliminarCuenta(id){
   if(!confirm('¿Eliminar esta cuenta? (no se puede si tiene movimientos)'))return;
