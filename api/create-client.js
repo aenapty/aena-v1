@@ -3,11 +3,12 @@
 // Seguridad: solo un usuario con rol 'super_admin' (verificado por su token) puede usarlo.
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://dqobxvvpzzngljwdalnq.supabase.co';
+const PUBLISHABLE_KEY = process.env.SUPABASE_ANON_KEY || 'sb_publishable_rCbSAjOlexErR9WBN-rfZA_8Tadpfa0';
 
-async function sb(path, { method = 'GET', token, body, prefer } = {}) {
+async function sb(path, { method = 'GET', token, body, prefer, apikey } = {}) {
   const headers = {
     'Content-Type': 'application/json',
-    'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+    'apikey': apikey || process.env.SUPABASE_SERVICE_ROLE_KEY,
     'Authorization': 'Bearer ' + (token || process.env.SUPABASE_SERVICE_ROLE_KEY)
   };
   if (prefer) headers['Prefer'] = prefer;
@@ -27,7 +28,7 @@ export default async function handler(req, res) {
     // --- 1. Verificar que quien llama es super_admin ---
     const callerToken = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
     if (!callerToken) return res.status(401).json({ error: 'No autenticado.' });
-    const who = await sb('/auth/v1/user', { token: callerToken });
+    const who = await sb('/auth/v1/user', { token: callerToken, apikey: PUBLISHABLE_KEY });
     if (!who.ok || !who.data?.id) return res.status(401).json({ error: 'Sesión inválida.' });
     const perfil = await sb('/rest/v1/usuarios?id=eq.' + who.data.id + '&select=rol', {});
     if (!perfil.ok || !Array.isArray(perfil.data) || perfil.data[0]?.rol !== 'super_admin') {
