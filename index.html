@@ -488,7 +488,7 @@ table.dt th:first-child{padding-left:14px}
         </div>
         <div class="card" style="padding:0;overflow:hidden">
           <div class="tbl-wrap"><table class="dt">
-            <thead><tr><th>FECHA</th><th>N° FACTURA</th><th>PROVEEDOR</th><th>CONCEPTO</th><th>CLASIFICACIÓN</th><th>GRAVABLE</th><th>ITBMS / IMP.</th><th>TIPO</th><th></th></tr></thead>
+            <thead><tr><th>FECHA</th><th>N° FACTURA</th><th>PROVEEDOR</th><th>CONCEPTO</th><th id="fact-clasif-th">CLASIFICACIÓN</th><th>GRAVABLE</th><th>ITBMS / IMP.</th><th>TIPO</th><th></th></tr></thead>
             <tbody id="tbody-facturas"></tbody>
           </table></div>
         </div>
@@ -1034,7 +1034,7 @@ table.dt th:first-child{padding-left:14px}
       <div style="display:grid;grid-template-columns:110px 1fr 1.3fr 85px 85px 85px 28px;gap:8px;padding-bottom:6px;border-bottom:1px solid var(--border);margin-bottom:4px">
   <div class="fl" style="margin:0">N° FACTURA</div>
   <div class="fl" style="margin:0">DETALLE</div>
-  <div class="fl" style="margin:0">CLASIFICACIÓN</div>
+  <div class="fl" id="clasif-col-label" style="margin:0">CLASIFICACIÓN</div>
   <div class="fl" style="margin:0">GRAVABLE</div>
   <div class="fl" style="margin:0">EXENTO</div>
   <div class="fl" id="itbms-col-label" style="margin:0">ITBMS</div>
@@ -2050,18 +2050,21 @@ function kpi(cls,label,val,sub){return '<div class="kpi-card '+cls+'"><div class
 
 function renderFacturas(){
   const esI=moduloActivo==='itbms';
-  document.getElementById('facturas-title').textContent=esI?'Facturas de compra':'Registro de gastos personales';
+  const esC=moduloActivo==='contable';
+  document.getElementById('facturas-title').textContent=esI||esC?'Facturas de compra':'Registro de gastos personales';
+  const thLbl=document.getElementById('fact-clasif-th');if(thLbl)thLbl.textContent=esC?'CUENTA CONTABLE':'CLASIFICACIÓN';
   const desde=document.getElementById('fact-filtro-desde')?.value||'';
   const hasta=document.getElementById('fact-filtro-hasta')?.value||'';
   let lista=[...facturas];
   if(desde) lista=lista.filter(f=>(f.fecha_exacta||'')>=desde);
   if(hasta) lista=lista.filter(f=>(f.fecha_exacta||'')<=hasta);
+  const cuentaTxt=f=>{const c=cuentas.find(x=>x.id===f.cuenta_id);return c?(c.numero_cuenta+' · '+c.nombre):'—';};
   document.getElementById('tbody-facturas').innerHTML=lista.map(f=>`<tr style="cursor:pointer" ondblclick="abrirEdicionFactura('${f.id}')" title="Doble clic para editar">
     <td>${f.fecha_exacta||'—'}</td>
     <td style="font-weight:500">${f.numero_factura||'—'}</td>
     <td>${f.proveedor||'—'}</td>
     <td style="color:var(--muted)">${f.detalle||f.concepto||'—'}</td>
-    <td>${f.clasificaciones_gasto?.nombre||'—'}</td>
+    <td>${esC?cuentaTxt(f):(f.clasificaciones_gasto?.nombre||'—')}</td>
     <td>${fmt(f.monto_gravable)}</td>
     <td style="color:#B45309;font-weight:600">${fmt(f.itbms_factura)}</td>
     <td><span class="tag tag-blue">${f.tipo||'Bien'}</span></td>
@@ -3121,17 +3124,24 @@ Días solicitados: ${dias.toFixed(2)}`);
   hideModal('modal-movimiento');await loadMovimientos(id);renderMovimientos();
 }
 
-function addLinea(){lineasFactura.push({concepto:'',clasificacion_id:'',gravable:'',exento:'',itbms:''});renderLineas();}
+function addLinea(){lineasFactura.push({concepto:'',clasificacion_id:'',cuenta_id:'',gravable:'',exento:'',itbms:''});renderLineas();}
 function removeLinea(i){lineasFactura.splice(i,1);renderLineas();}
 function renderLineas(){
   const esISR=moduloActivo==='isr';
+  const esC=moduloActivo==='contable';
   document.getElementById('itbms-col-label').textContent=esISR?'IMPUESTO':'ITBMS';
-  const opts='<option value="">Sin clasificar</option>'+clasificaciones.filter(c=>c.modulo===moduloActivo).map(c=>'<option value="'+c.id+'">'+c.nombre+'</option>').join('');
+  const colLbl=document.getElementById('clasif-col-label');if(colLbl)colLbl.textContent=esC?'CUENTA CONTABLE':'CLASIFICACIÓN';
+  const lista=esC
+    ? cuentas.filter(c=>c.es_movimiento&&c.activo!==false).map(c=>({id:c.id,nombre:c.numero_cuenta+' · '+c.nombre}))
+    : clasificaciones.filter(c=>c.modulo===moduloActivo).map(c=>({id:c.id,nombre:c.nombre}));
+  const placeholder=esC?'— Cuenta contable —':'Sin clasificar';
+  const bindField=esC?'cuenta_id':'clasificacion_id';
+  const optsFor=sel=>'<option value="">'+placeholder+'</option>'+lista.map(o=>'<option value="'+o.id+'"'+(o.id===sel?' selected':'')+'>'+o.nombre+'</option>').join('');
  document.getElementById('lineas-container').innerHTML=lineasFactura.map((l,i)=>
   '<div style="display:grid;grid-template-columns:110px 1fr 1.3fr 85px 85px 85px 28px;gap:6px;align-items:center;padding:7px 0;border-bottom:.5px solid var(--border)">'+
   '<input type="text" class="fi" placeholder="N° factura" value="'+(l.nf||'')+'" oninput="lineasFactura['+i+'].nf=this.value" style="font-size:11px">'+
   '<input type="text" class="fi" placeholder="Detalle del gasto" value="'+(l.detalle||'')+'" oninput="lineasFactura['+i+'].detalle=this.value;lineasFactura['+i+'].concepto=this.value" style="font-size:11px">'+
-  '<select class="fi" onchange="lineasFactura['+i+'].clasificacion_id=this.value" style="font-size:11px">'+opts+'</select>'+
+  '<select class="fi" onchange="lineasFactura['+i+'].'+bindField+'=this.value" style="font-size:11px">'+optsFor(esC?(l.cuenta_id||''):(l.clasificacion_id||''))+'</select>'+
   '<input type="number" class="fi" placeholder="0.00" value="'+(l.gravable||'')+'" step="0.01" oninput="lineasFactura['+i+'].gravable=this.value;autoItbms('+i+')" style="font-size:11px">'+
   '<input type="number" class="fi" placeholder="0.00" value="'+(l.exento||'')+'" step="0.01" oninput="lineasFactura['+i+'].exento=this.value" style="font-size:11px">'+
   '<input type="number" class="fi" placeholder="0.00" value="'+(l.itbms||'')+'" step="0.01" id="itbms-linea-'+i+'" oninput="lineasFactura['+i+'].itbms=this.value;updateTotalItbms()" style="font-size:11px">'+
@@ -3164,6 +3174,7 @@ const rows=lineasFactura.map((l,idx)=>({
   detalle:l.detalle||null,
   numero_factura:l.nf||null,
   clasificacion_id:l.clasificacion_id||null,
+  ...(moduloActivo==='contable'?{cuenta_id:l.cuenta_id||null}:{}),
   monto_gravable:parseFloat(l.gravable)||0,
   monto_exento:parseFloat(l.exento)||0,
   itbms_calculado:(parseFloat(l.gravable)||0)*0.07,
@@ -3236,6 +3247,7 @@ function abrirEdicionFactura(id){
     detalle:f.detalle||f.concepto||'',
     concepto:f.detalle||f.concepto||'',
     clasificacion_id:f.clasificacion_id||'',
+    cuenta_id:f.cuenta_id||'',
     gravable:f.monto_gravable||'',
     exento:f.monto_exento||'',
     itbms:f.itbms_factura||''
@@ -3267,6 +3279,7 @@ async function guardarEdicionFacturaDesdeModal(){
     concepto:l.detalle||l.concepto||null,
     detalle:l.detalle||null,
     clasificacion_id:l.clasificacion_id||null,
+    ...(moduloActivo==='contable'?{cuenta_id:l.cuenta_id||null}:{}),
     monto_gravable:parseFloat(l.gravable)||0,
     monto_exento:parseFloat(l.exento)||0,
     itbms_calculado:(parseFloat(l.gravable)||0)*0.07,
