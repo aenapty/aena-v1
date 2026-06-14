@@ -5070,32 +5070,38 @@ async function guardarNuevoCliente(){
   const nombre=document.getElementById('nc-nombre').value.trim();
   const ruc=document.getElementById('nc-ruc').value.trim();
   const dv=document.getElementById('nc-dv').value.trim();
-  const userId=document.getElementById('nc-userid').value.trim();
   const adminNombre=document.getElementById('nc-admin-nombre').value.trim();
   const adminEmail=document.getElementById('nc-admin-email').value.trim();
+  const password=document.getElementById('nc-admin-pass')?.value.trim()||'';
   const err=document.getElementById('nc-error');
   err.classList.add('hidden');
-  if(!nombre||!userId||!adminEmail){
-    err.textContent='Nombre de empresa, User ID y correo del admin son obligatorios.';
+  if(!nombre||!adminEmail){
+    err.textContent='Nombre de empresa y correo del administrador son obligatorios.';
     err.classList.remove('hidden');return;
   }
-  // 1. Crear cliente
-  const {data:nuevoCliente,error:errC}=await sb.from('clientes').insert({nombre,ruc:ruc||null,dv:dv||null}).select().single();
-  if(errC){err.textContent='Error al crear cliente: '+errC.message;err.classList.remove('hidden');return;}
-  // 2. Crear usuario vinculado
-  const {error:errU}=await sb.from('usuarios').insert({id:userId,cliente_id:nuevoCliente.id,nombre:adminNombre||adminEmail,email:adminEmail,rol:'admin'});
-  if(errU){err.textContent='Cliente creado pero error al crear usuario: '+errU.message+'. El cliente existe, edítalo manualmente en Supabase.';err.classList.remove('hidden');return;}
-  // 3. Insertar módulos seleccionados
-  const modsSeleccionados=MODULOS_DISPONIBLES.filter(m=>document.getElementById('nc-mod-'+m.key)?.checked);
-  if(modsSeleccionados.length>0){
-    await sb.from('cliente_modulos').insert(modsSeleccionados.map(m=>({cliente_id:nuevoCliente.id,modulo:m.key,activo:true})));
+  const modulos=MODULOS_DISPONIBLES.filter(m=>document.getElementById('nc-mod-'+m.key)?.checked).map(m=>m.key);
+  const btn=document.querySelector('#modal-nuevo-cliente .btn-primary');
+  const txtPrev=btn?btn.textContent:''; if(btn){btn.disabled=true;btn.textContent='Creando…';}
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    const resp=await fetch('/api/create-client',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+(session?.access_token||'')},
+      body:JSON.stringify({nombre,ruc,dv,adminNombre,adminEmail,password,modulos})
+    });
+    const out=await resp.json();
+    if(!resp.ok||out.error){err.textContent=out.error||'Error al crear el cliente.';err.classList.remove('hidden');return;}
+    hideModal('modal-nuevo-cliente');
+    ['nc-nombre','nc-ruc','nc-dv','nc-admin-nombre','nc-admin-email','nc-admin-pass'].forEach(x=>{const e=document.getElementById(x);if(e)e.value='';});
+    const {data:cl}=await sb.from('clientes').select('*').order('nombre');
+    todosClientes=cl||[];
+    await renderSAClientes();
+    alert('✓ Cliente "'+nombre+'" creado.\n\nAcceso del administrador:\nCorreo: '+out.email+'\nContraseña temporal: '+out.password+'\n\nCompárte­le estos datos; podrá cambiar la contraseña con "¿Olvidaste tu contraseña?".'+(out.contable?'\n\nEl plan de cuentas contable ya quedó sembrado.':''));
+  }catch(e){
+    err.textContent='Error de red: '+e.message;err.classList.remove('hidden');
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent=txtPrev;}
   }
-  hideModal('modal-nuevo-cliente');
-  // Recargar lista
-  const {data:cl}=await sb.from('clientes').select('*').order('nombre');
-  todosClientes=cl||[];
-  await renderSAClientes();
-  alert(`✓ Cliente "${nombre}" creado correctamente.`);
 }
 
 function abrirEditarCliente(id){
@@ -5477,7 +5483,7 @@ init();
   <div class="modal" style="max-width:520px">
     <div class="modal-title">Nuevo cliente</div>
     <p style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6">
-      Antes de continuar, crea el usuario en <strong>Supabase → Authentication → Users → Invite user</strong> con el correo del administrador del cliente. Luego copia aquí el User ID generado.
+      Crea el cliente, su usuario administrador y los módulos en un solo paso. El sistema genera la cuenta de acceso automáticamente.
     </p>
     <div class="fg">
       <div class="fg-full"><label class="fl">NOMBRE DE LA EMPRESA</label><input type="text" class="fi" id="nc-nombre" placeholder="Empresa S.A."></div>
@@ -5485,9 +5491,9 @@ init();
         <div><label class="fl">RUC</label><input type="text" class="fi" id="nc-ruc" placeholder="RUC-000-000-0"></div>
         <div><label class="fl">DV</label><input type="text" class="fi" id="nc-dv" placeholder="00" maxlength="2"></div>
       </div>
-      <div class="fg-full"><label class="fl">USER ID (de Supabase Auth)</label><input type="text" class="fi" id="nc-userid" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"></div>
       <div class="fg-full"><label class="fl">NOMBRE DEL ADMINISTRADOR</label><input type="text" class="fi" id="nc-admin-nombre" placeholder="Nombre completo del admin"></div>
       <div class="fg-full"><label class="fl">CORREO DEL ADMINISTRADOR</label><input type="email" class="fi" id="nc-admin-email" placeholder="admin@empresa.com"></div>
+      <div class="fg-full"><label class="fl">CONTRASEÑA TEMPORAL (opcional)</label><input type="text" class="fi" id="nc-admin-pass" placeholder="Se genera automáticamente si lo dejas vacío"></div>
     </div>
     <div style="margin-top:16px">
       <div class="form-section-title" style="font-size:11px;margin-bottom:10px">MÓDULOS ACTIVOS</div>
@@ -5500,6 +5506,9 @@ init();
         </label>
         <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
           <input type="checkbox" id="nc-mod-rrhh" checked style="width:16px;height:16px;accent-color:var(--blue)"> AENA Workforce — RRHH
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+          <input type="checkbox" id="nc-mod-contable" style="width:16px;height:16px;accent-color:var(--blue)"> AENA Contable
         </label>
       </div>
     </div>
