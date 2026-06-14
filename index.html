@@ -815,7 +815,186 @@ table.dt th:first-child{padding-left:14px}
         </div>
       </div>
 
+<!-- ===================== MÓDULO CONTABLE ===================== -->
+      <div class="page" id="page-plan-cuentas">
+        <div class="page-title" style="display:flex;justify-content:space-between;align-items:center">
+          <span>Plan de cuentas</span>
+          <button class="btn btn-primary btn-sm" onclick="abrirNuevaCuenta()">+ Nueva cuenta</button>
+        </div>
+        <div class="form-section">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+            <select class="fi" id="pc-filtro-tipo" style="max-width:220px" onchange="renderPlanCuentas()">
+              <option value="">Todos los tipos</option>
+              <option value="activo">Activo</option><option value="pasivo">Pasivo</option>
+              <option value="patrimonio">Patrimonio</option><option value="ingreso">Ingreso</option>
+              <option value="costo">Costo</option><option value="gasto">Gasto</option>
+            </select>
+          </div>
+          <div class="tbl-wrap"><table class="dt" style="min-width:520px">
+            <thead><tr><th>CUENTA</th><th>NOMBRE</th><th>TIPO</th><th>NATURALEZA</th><th>MOV.</th><th></th></tr></thead>
+            <tbody id="tbody-cuentas"></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <div class="page" id="page-facturas-ingreso">
+        <div class="page-title" style="display:flex;justify-content:space-between;align-items:center">
+          <span>Facturas de ingreso</span>
+          <button class="btn btn-primary btn-sm" onclick="abrirNuevaFacIng()">+ Nueva factura</button>
+        </div>
+        <div class="form-section">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-bottom:12px">
+            <div><label class="fl">DESDE</label><input type="date" class="fi" id="fing-desde" onchange="renderFacturasIngreso()"></div>
+            <div><label class="fl">HASTA</label><input type="date" class="fi" id="fing-hasta" onchange="renderFacturasIngreso()"></div>
+          </div>
+          <div class="kpi-grid" id="fing-totales" style="margin-bottom:12px"></div>
+          <div class="tbl-wrap"><table class="dt" style="min-width:640px">
+            <thead><tr><th>FECHA</th><th>Nº DOC</th><th>CLIENTE</th><th>CONCEPTO</th><th>CUENTA</th><th>GRAVABLE</th><th>ITBMS</th><th></th></tr></thead>
+            <tbody id="tbody-facing"></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <div class="page" id="page-asientos">
+        <div class="page-title" style="display:flex;justify-content:space-between;align-items:center">
+          <span>Asientos contables</span>
+          <button class="btn btn-primary btn-sm" onclick="abrirNuevoAsiento()">+ Nuevo asiento</button>
+        </div>
+        <div class="form-section">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-bottom:12px">
+            <div><label class="fl">DESDE</label><input type="date" class="fi" id="as-desde" onchange="renderAsientos()"></div>
+            <div><label class="fl">HASTA</label><input type="date" class="fi" id="as-hasta" onchange="renderAsientos()"></div>
+          </div>
+          <div id="lista-asientos"></div>
+        </div>
+      </div>
+
+      <div class="page" id="page-mayor">
+        <div class="page-title">Mayor General</div>
+        <div class="form-section">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-bottom:12px">
+            <div style="min-width:240px"><label class="fl">CUENTA</label><select class="fi" id="may-cuenta" onchange="renderMayor()"></select></div>
+            <div><label class="fl">DESDE</label><input type="date" class="fi" id="may-desde" onchange="renderMayor()"></div>
+            <div><label class="fl">HASTA</label><input type="date" class="fi" id="may-hasta" onchange="renderMayor()"></div>
+          </div>
+          <div class="kpi-grid" id="may-totales" style="margin-bottom:12px"></div>
+          <div class="tbl-wrap"><table class="dt" style="min-width:620px">
+            <thead><tr><th>FECHA</th><th>ASIENTO</th><th>DESCRIPCIÓN</th><th>DEBE</th><th>HABER</th><th>SALDO</th></tr></thead>
+            <tbody id="tbody-mayor"></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <div class="page" id="page-balance">
+        <div class="page-title">Balance General</div>
+        <div class="form-section">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-bottom:12px">
+            <div><label class="fl">AL CORTE (FECHA)</label><input type="date" class="fi" id="bg-hasta" onchange="renderBalance()"></div>
+          </div>
+          <div id="bg-contenido"></div>
+        </div>
+      </div>
+
+      <div class="page" id="page-resultados">
+        <div class="page-title">Estado de Resultados</div>
+        <div class="form-section">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-bottom:12px">
+            <div><label class="fl">DESDE</label><input type="date" class="fi" id="er-desde" onchange="renderResultados()"></div>
+            <div><label class="fl">HASTA</label><input type="date" class="fi" id="er-hasta" onchange="renderResultados()"></div>
+          </div>
+          <div id="er-contenido"></div>
+        </div>
+      </div>
+
 <!-- MODALS -->
+<!-- Modal: Cuenta contable -->
+<div class="modal-overlay hidden" id="modal-cuenta">
+  <div class="modal">
+    <div class="modal-title" id="mc-title">Nueva cuenta</div>
+    <div class="form-section">
+      <div class="fg">
+        <div><label class="fl">Nº DE CUENTA</label><input type="text" class="fi" id="mc-numero" placeholder="Ej: 6108"></div>
+        <div><label class="fl">NOMBRE</label><input type="text" class="fi" id="mc-nombre" placeholder="Ej: Mantenimiento"></div>
+        <div><label class="fl">TIPO</label><select class="fi" id="mc-tipo" onchange="mcAutoNaturaleza()">
+          <option value="activo">Activo</option><option value="pasivo">Pasivo</option>
+          <option value="patrimonio">Patrimonio</option><option value="ingreso">Ingreso</option>
+          <option value="costo">Costo</option><option value="gasto">Gasto</option>
+        </select></div>
+        <div><label class="fl">NATURALEZA</label><select class="fi" id="mc-naturaleza">
+          <option value="deudora">Deudora</option><option value="acreedora">Acreedora</option>
+        </select></div>
+        <div><label class="fl">ACEPTA MOVIMIENTOS</label><select class="fi" id="mc-mov">
+          <option value="true">Sí (cuenta de movimiento)</option><option value="false">No (grupo/encabezado)</option>
+        </select></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
+        <button class="btn btn-ghost btn-sm" onclick="hideModal('modal-cuenta')">Cancelar</button>
+        <button class="btn btn-primary btn-sm" onclick="guardarCuenta()">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Factura de ingreso -->
+<div class="modal-overlay hidden" id="modal-factura-ingreso">
+  <div class="modal">
+    <div class="modal-title" id="mfi-title">Nueva factura de ingreso</div>
+    <div class="form-section">
+      <div class="fg">
+        <div><label class="fl">FECHA</label><input type="date" class="fi" id="mfi-fecha"></div>
+        <div><label class="fl">Nº DOCUMENTO</label><input type="text" class="fi" id="mfi-doc"></div>
+        <div><label class="fl">CLIENTE</label><input type="text" class="fi" id="mfi-cliente"></div>
+        <div style="display:grid;grid-template-columns:1fr 80px;gap:8px;align-items:end">
+          <div><label class="fl">RUC</label><input type="text" class="fi" id="mfi-ruc"></div>
+          <div><label class="fl">DV</label><input type="text" class="fi" id="mfi-dv" maxlength="2"></div>
+        </div>
+        <div><label class="fl">CONCEPTO</label><input type="text" class="fi" id="mfi-concepto"></div>
+        <div><label class="fl">CUENTA DE INGRESO</label><select class="fi" id="mfi-cuenta"></select></div>
+        <div><label class="fl">GRAVABLE</label><input type="number" class="fi" id="mfi-grav" step="0.01" placeholder="0.00" oninput="mfiAutoItbms()"></div>
+        <div><label class="fl">EXENTO</label><input type="number" class="fi" id="mfi-exento" step="0.01" placeholder="0.00"></div>
+        <div><label class="fl">ITBMS COBRADO</label><input type="number" class="fi" id="mfi-itbms" step="0.01" placeholder="0.00"></div>
+        <div><label class="fl">RETENCIÓN</label><input type="number" class="fi" id="mfi-ret" step="0.01" placeholder="0.00"></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
+        <button class="btn btn-ghost btn-sm" onclick="hideModal('modal-factura-ingreso')">Cancelar</button>
+        <button class="btn btn-primary btn-sm" onclick="guardarFacturaIngreso()">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Asiento contable -->
+<div class="modal-overlay hidden" id="modal-asiento">
+  <div class="modal" style="max-width:760px">
+    <div class="modal-title">Nuevo asiento</div>
+    <div class="form-section">
+      <div class="fg">
+        <div><label class="fl">FECHA</label><input type="date" class="fi" id="ma-fecha"></div>
+        <div><label class="fl">REFERENCIA</label><input type="text" class="fi" id="ma-ref" placeholder="Nº doc / factura"></div>
+        <div style="grid-column:1/-1"><label class="fl">DESCRIPCIÓN</label><input type="text" class="fi" id="ma-desc" placeholder="Glosa del asiento"></div>
+        <div><label class="fl">PROVEEDOR (opcional)</label><select class="fi" id="ma-prov"></select></div>
+      </div>
+      <div class="form-section-title" style="margin-top:14px;display:flex;justify-content:space-between;align-items:center">
+        <span>Líneas (partida doble)</span>
+        <button class="btn btn-outline btn-sm" onclick="addLineaAsiento()">+ Línea</button>
+      </div>
+      <div style="display:grid;grid-template-columns:2.2fr 1.4fr 1fr 1fr 28px;gap:6px;font-size:10px;color:var(--muted);font-weight:600;padding:0 2px 4px">
+        <span>CUENTA</span><span>DETALLE</span><span>DEBE</span><span>HABER</span><span></span>
+      </div>
+      <div id="ma-lineas"></div>
+      <div style="display:flex;justify-content:flex-end;gap:18px;margin-top:10px;font-size:13px;font-weight:700">
+        <span>Debe: <span id="ma-tdebe">$0.00</span></span>
+        <span>Haber: <span id="ma-thaber">$0.00</span></span>
+        <span id="ma-balance"></span>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
+        <button class="btn btn-ghost btn-sm" onclick="hideModal('modal-asiento')">Cancelar</button>
+        <button class="btn btn-primary btn-sm" onclick="guardarAsiento()">Guardar asiento</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay hidden" id="modal-factura">
   <div class="modal">
     <div class="modal-title">Nueva factura</div>
@@ -1433,6 +1612,7 @@ let tiposPermisoConfig=[];
 let tiposGoce=[],tiposReposicionConfig=[];
 let selMes=new Date().getMonth()+1,filtroMes='todos',filtroTipo='todos';
 let moduloActivo=null,lineasFactura=[],csvFP=[],csvCP=[],csvMP=[];
+let cuentas=[],asientos=[],facturasIngreso=[],lineasAsiento=[],cuentaEditandoId=null,facIngEditandoId=null;
 
 // Inject logos
 document.getElementById('loading-logo').innerHTML=logoWithText(44,true);
@@ -1460,17 +1640,23 @@ async function loadUser(authUser){
       const {data:mods}=await sb.from('cliente_modulos').select('*').eq('cliente_id',u.cliente_id).eq('activo',true);
       modulos=mods||[];
     }
-    detectModulo();
+    await detectModulo();
     await loadTodo();
     showApp();
   }catch(e){console.error(e);showLogin();}
 }
 
-function detectModulo(){
+async function detectModulo(){
   if(!clienteActivo) return;
   const id=clienteActivo.id;
-  if(id==='33333333-3333-3333-3333-333333333333') moduloActivo='rrhh';
-  else if(id==='22222222-2222-2222-2222-222222222222') moduloActivo='isr';
+  if(id==='33333333-3333-3333-3333-333333333333'){moduloActivo='rrhh';return;}
+  if(id==='22222222-2222-2222-2222-222222222222'){moduloActivo='isr';return;}
+  // Determina si el cliente ACTIVO tiene el módulo contable activo (también para super_admin)
+  let mods=modulos;
+  if(usuario?.rol==='super_admin'){
+    try{const {data}=await sb.from('cliente_modulos').select('modulo').eq('cliente_id',id).eq('activo',true);mods=data||[];}catch(e){mods=[];}
+  }
+  if(mods.some(m=>m.modulo==='contable')) moduloActivo='contable';
   else moduloActivo=modulos[0]?.modulo||'itbms';
 }
 
@@ -1479,9 +1665,13 @@ async function loadTodo(){
   const id=clienteActivo.id;
   await Promise.all([
     loadClasificaciones(id),loadProveedores(id),loadFacturas(id),loadIngresos(id),
-    loadColaboradores(id),loadMovimientos(id),loadTiposPermiso(id),loadTiposHorario(id),loadSolicitudes(id),loadSupervisores(id),loadTiposPermisoConfig(id),loadTiposGoce(id),loadTiposReposicionConfig(id)
+    loadColaboradores(id),loadMovimientos(id),loadTiposPermiso(id),loadTiposHorario(id),loadSolicitudes(id),loadSupervisores(id),loadTiposPermisoConfig(id),loadTiposGoce(id),loadTiposReposicionConfig(id),
+    ...(moduloActivo==='contable'?[loadCuentas(id),loadAsientos(id),loadFacturasIngreso(id)]:[])
   ]);
 }
+async function loadCuentas(id){try{const {data,error}=await sb.from('cuentas_contables').select('*').eq('cliente_id',id).order('numero_cuenta');if(!error)cuentas=data||[];}catch(e){cuentas=[];}}
+async function loadAsientos(id){try{const {data,error}=await sb.from('asientos').select('*,proveedores(nombre),asiento_lineas(*,cuentas_contables(numero_cuenta,nombre),proveedores(nombre))').eq('cliente_id',id).order('fecha',{ascending:false}).order('numero',{ascending:false});if(!error)asientos=data||[];}catch(e){asientos=[];}}
+async function loadFacturasIngreso(id){try{const {data,error}=await sb.from('facturas_ingreso').select('*,cuentas_contables(numero_cuenta,nombre)').eq('cliente_id',id).order('fecha',{ascending:false});if(!error)facturasIngreso=data||[];}catch(e){facturasIngreso=[];}}
 
 async function loadProveedores(id){
   const {data}=await sb.from('proveedores').select('*').eq('cliente_id',id).eq('activo',true).order('nombre');
@@ -1661,15 +1851,15 @@ function updateUI(){
   const savedUN=localStorage.getItem('aena-username-'+(clienteActivo?.id||''));
   document.getElementById('top-user-name').textContent=savedUN||usuario.nombre||usuario.email||'Usuario';
   document.getElementById('top-user-role').textContent=usuario.rol==='super_admin'?'SUPER ADMIN':'ADMINISTRADOR';
-  const isTax=moduloActivo==='itbms'||moduloActivo==='isr';
-  document.getElementById('sidebar-module-name').textContent=isTax?'AENA Tax':'AENA Workforce';
+  const isTax=moduloActivo==='itbms'||moduloActivo==='isr'||moduloActivo==='contable';
+  document.getElementById('sidebar-module-name').textContent=moduloActivo==='contable'?'AENA Contable':(isTax?'AENA Tax':'AENA Workforce');
   document.getElementById('sidebar-module-name').className='module-name '+(isTax?'module-tax':'module-workforce');
-  document.getElementById('sidebar-module-sub').textContent=moduloActivo==='itbms'?'MÓDULO ITBMS':moduloActivo==='isr'?'MÓDULO ISR':'GESTIÓN DE PERSONAL';
+  document.getElementById('sidebar-module-sub').textContent=moduloActivo==='itbms'?'MÓDULO ITBMS':moduloActivo==='isr'?'MÓDULO ISR':moduloActivo==='contable'?'MÓDULO CONTABLE':'GESTIÓN DE PERSONAL';
 }
 
 async function cambiarCliente(id){
   clienteActivo=todosClientes.find(c=>c.id===id);
-  detectModulo();
+  await detectModulo();
   await loadTodo();
   updateUI();
   buildNav();
@@ -1716,8 +1906,13 @@ async function doResetPass(){
 
 
 function buildNav(){
-  const isR=moduloActivo==='rrhh',isI=moduloActivo==='itbms',isISR=moduloActivo==='isr';
+  const isR=moduloActivo==='rrhh',isI=moduloActivo==='itbms',isISR=moduloActivo==='isr',isC=moduloActivo==='contable';
   let h='<div class="nav-section">PRINCIPAL</div>'+ni('dashboard','⬡','Dashboard');
+  if(isC){
+    h+='<div class="nav-section">GESTIÓN</div>'+ni('facturas','↓','Facturas de compra')+ni('facturas-ingreso','↑','Facturas de ingreso')+ni('ingresos','≡','Ingresos (mensual)');
+    h+='<div class="nav-section">ANÁLISIS ITBMS</div>'+ni('itbms','◎','Análisis ITBMS')+ni('reportes','▤','Reportes ITBMS');
+    h+='<div class="nav-section">CONTABILIDAD</div>'+ni('plan-cuentas','▦','Plan de cuentas')+ni('asientos','✎','Asientos')+ni('mayor','▥','Mayor General')+ni('balance','◭','Balance General')+ni('resultados','◿','Estado de Resultados');
+  }
   if(isI){h+='<div class="nav-section">GESTIÓN</div>'+ni('facturas','↓','Facturas de compra')+ni('ingresos','↑','Ingresos')+'<div class="nav-section">ANÁLISIS</div>'+ni('itbms','◎','Análisis ITBMS')+ni('reportes','▤','Reportes');}
   if(isISR){h+='<div class="nav-section">GESTIÓN</div>'+ni('facturas','↓','Registro de gastos')+'<div class="nav-section">ANÁLISIS</div>'+ni('isr','◎','Resumen ISR')+ni('reportes','▤','Reportes');}
   if(isR){h+='<div class="nav-section">PERSONAL</div>'+ni('colaboradores','◉','Colaboradores')+ni('movimientos','↕','Movimientos')+'<div class="nav-section">SOLICITUDES</div>'+ni('solicitudes','📨','Solicitudes')+'<div class="nav-section">REPORTES</div>'+ni('saldos','▤','Saldos y reportes');}
@@ -1736,7 +1931,7 @@ function goPage(p){
 }
 
 function renderPage(p){
-  const map={dashboard:renderDash,facturas:renderFacturas,ingresos:renderIngresos,itbms:renderItbms,isr:renderIsr,anual:()=>{poblarSelectoresAnio();renderAnual();},reportes:function(){},'rpt-itbms':()=>{poblarSelectoresAnio();renderRptItbms();},'rpt-concepto':renderRptConcepto,'rpt-detallado':renderRptDetallado,colaboradores:renderColaboradores,movimientos:()=>{renderMovimientos();iniciarPolling();},saldos:renderSaldos,solicitudes:()=>{renderSolicitudes();iniciarPolling();},config:renderConfig};
+  const map={dashboard:renderDash,facturas:renderFacturas,ingresos:renderIngresos,itbms:renderItbms,isr:renderIsr,anual:()=>{poblarSelectoresAnio();renderAnual();},reportes:function(){},'rpt-itbms':()=>{poblarSelectoresAnio();renderRptItbms();},'rpt-concepto':renderRptConcepto,'rpt-detallado':renderRptDetallado,colaboradores:renderColaboradores,movimientos:()=>{renderMovimientos();iniciarPolling();},saldos:renderSaldos,solicitudes:()=>{renderSolicitudes();iniciarPolling();},config:renderConfig,'plan-cuentas':renderPlanCuentas,'facturas-ingreso':renderFacturasIngreso,asientos:renderAsientos,mayor:renderMayor,balance:renderBalance,resultados:renderResultados};
   if(map[p]) map[p]();
 }
 
@@ -1797,7 +1992,7 @@ function renderDash(){
   const tI=facturas.reduce((a,f)=>a+parseFloat(f.itbms_factura||0),0);
   const tIG=ingresos.reduce((a,i)=>a+parseFloat(i.gravable||0),0);
   const tII=ingresos.reduce((a,i)=>a+parseFloat(i.itbms_cobrado||0),0);
-  const bal=tII-tI;const esI=moduloActivo==='itbms';
+  const bal=tII-tI;const esI=moduloActivo==='itbms'||moduloActivo==='contable';
   const anioData=facturas.length?parseInt((facturas[0].fecha_exacta||'').substring(0,4))||anio:anio;
   document.getElementById('dash-kpis').innerHTML=kpi('kpi-blue','Facturas registradas',facturas.length,'Año '+anioData)+kpi('kpi-purple','Compras gravables',fmt(tG),'ITBMS: '+fmt(tI))+(esI?kpi('kpi-lime','Ingresos gravables',fmt(tIG),'ITBMS cobrado: '+fmt(tII))+kpi(bal>=0?'kpi-green':'kpi-red','Balance ITBMS',fmt(Math.abs(bal)),bal>=0?'Crédito a favor':'A pagar DGI'):kpi('kpi-amber','Total gastos deducibles',fmt(tG),'Año '+anioData)+kpi('kpi-blue','Meses con registros',[...new Set(facturas.map(f=>f.mes))].length,'de 12 meses'));
   const modC=esI?[{icon:'📄',title:'Facturas de compra',sub:'Registro mensual',page:'facturas',cls:'mod-card-blue'},{icon:'📈',title:'Ingresos',sub:'Control mensual',page:'ingresos',cls:'mod-card-navy'},{icon:'⚖️',title:'Análisis ITBMS',sub:'Resultado mensual DGI',page:'itbms',cls:'mod-card-purple'},{icon:'📊',title:'Reporte anual',sub:'Todos los meses',page:'anual',cls:'mod-card-teal'}]:[{icon:'🧾',title:'Registro de gastos',sub:'Facturas personales',page:'facturas',cls:'mod-card-amber'},{icon:'📊',title:'Resumen ISR',sub:'Proyección y cuotas',page:'isr',cls:'mod-card-purple'},{icon:'📋',title:'Reporte anual',sub:'Todos los meses',page:'anual',cls:'mod-card-navy'}];
@@ -4790,7 +4985,8 @@ function poblarSelectoresAnio(){
 const MODULOS_DISPONIBLES=[
   {key:'itbms',label:'AENA Tax — ITBMS'},
   {key:'isr',label:'AENA Tax — ISR'},
-  {key:'rrhh',label:'AENA Workforce — RRHH'}
+  {key:'rrhh',label:'AENA Workforce — RRHH'},
+  {key:'contable',label:'AENA Contable'}
 ];
 
 async function renderSAClientes(){
@@ -4922,6 +5118,331 @@ async function guardarEdicionCliente(){
   if(clienteActivo?.id===id){clienteActivo={...clienteActivo,nombre,ruc:ruc||null,dv:dv||null};updateUI();}
   hideModal('modal-editar-cliente');
   await renderSAClientes();
+}
+
+/* ===================== MÓDULO CONTABLE — lógica ===================== */
+const TIPOS_DEUDORA=['activo','costo','gasto'];
+function naturalezaDe(tipo){return TIPOS_DEUDORA.includes(tipo)?'deudora':'acreedora';}
+function cuentasMov(){return cuentas.filter(c=>c.es_movimiento&&c.activo!==false);}
+function optsCuentas(sel){return '<option value="">—</option>'+cuentasMov().map(c=>'<option value="'+c.id+'"'+(c.id===sel?' selected':'')+'>'+c.numero_cuenta+' · '+c.nombre+'</option>').join('');}
+function optsProv(sel){return '<option value="">— Sin proveedor —</option>'+proveedores.map(p=>'<option value="'+p.id+'"'+(p.id===sel?' selected':'')+'>'+p.nombre+'</option>').join('');}
+
+/* ---------- Plan de cuentas ---------- */
+function renderPlanCuentas(){
+  const ft=document.getElementById('pc-filtro-tipo')?.value||'';
+  let lista=[...cuentas];
+  if(ft) lista=lista.filter(c=>c.tipo===ft);
+  document.getElementById('tbody-cuentas').innerHTML=lista.map(c=>`<tr>
+    <td style="font-weight:600">${c.numero_cuenta}</td>
+    <td${c.es_movimiento?'':' style="font-weight:700"'}>${c.nombre}</td>
+    <td><span class="tag tag-blue">${(c.tipo||'').toUpperCase()}</span></td>
+    <td style="color:var(--muted)">${c.naturaleza||''}</td>
+    <td>${c.es_movimiento?'<span class="tag tag-green">Sí</span>':'<span class="tag">grupo</span>'}</td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-ghost btn-sm" onclick="abrirEdicionCuenta('${c.id}')">✎</button>
+      <button class="btn btn-danger" onclick="eliminarCuenta('${c.id}')">&#215;</button>
+    </td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">Sin cuentas. Usa “+ Nueva cuenta”.</td></tr>';
+}
+function mcAutoNaturaleza(){const t=document.getElementById('mc-tipo').value;document.getElementById('mc-naturaleza').value=naturalezaDe(t);}
+function abrirNuevaCuenta(){
+  cuentaEditandoId=null;
+  document.getElementById('mc-title').textContent='Nueva cuenta';
+  document.getElementById('mc-numero').value='';
+  document.getElementById('mc-nombre').value='';
+  document.getElementById('mc-tipo').value='gasto';
+  document.getElementById('mc-naturaleza').value='deudora';
+  document.getElementById('mc-mov').value='true';
+  showModal('modal-cuenta');
+}
+function abrirEdicionCuenta(id){
+  const c=cuentas.find(x=>x.id===id);if(!c)return;
+  cuentaEditandoId=id;
+  document.getElementById('mc-title').textContent='Editar cuenta';
+  document.getElementById('mc-numero').value=c.numero_cuenta||'';
+  document.getElementById('mc-nombre').value=c.nombre||'';
+  document.getElementById('mc-tipo').value=c.tipo||'gasto';
+  document.getElementById('mc-naturaleza').value=c.naturaleza||'deudora';
+  document.getElementById('mc-mov').value=String(c.es_movimiento!==false);
+  showModal('modal-cuenta');
+}
+async function guardarCuenta(){
+  const id=clienteActivo?.id;
+  const numero=document.getElementById('mc-numero').value.trim();
+  const nombre=document.getElementById('mc-nombre').value.trim();
+  if(!numero||!nombre){alert('Número y nombre son obligatorios');return;}
+  const payload={cliente_id:id,numero_cuenta:numero,nombre,
+    tipo:document.getElementById('mc-tipo').value,
+    naturaleza:document.getElementById('mc-naturaleza').value,
+    es_movimiento:document.getElementById('mc-mov').value==='true'};
+  let error;
+  if(cuentaEditandoId){({error}=await sb.from('cuentas_contables').update(payload).eq('id',cuentaEditandoId));}
+  else{({error}=await sb.from('cuentas_contables').insert(payload));}
+  if(error){alert('Error: '+error.message);return;}
+  hideModal('modal-cuenta');
+  await loadCuentas(id);renderPlanCuentas();
+}
+async function eliminarCuenta(id){
+  if(!confirm('¿Eliminar esta cuenta? (no se puede si tiene movimientos)'))return;
+  const {error}=await sb.from('cuentas_contables').delete().eq('id',id);
+  if(error){alert('No se pudo eliminar: la cuenta tiene asientos asociados.');return;}
+  await loadCuentas(clienteActivo.id);renderPlanCuentas();
+}
+
+/* ---------- Facturas de ingreso ---------- */
+function renderFacturasIngreso(){
+  document.getElementById('mfi-cuenta');
+  const d=document.getElementById('fing-desde')?.value||'';
+  const h=document.getElementById('fing-hasta')?.value||'';
+  let lista=[...facturasIngreso];
+  if(d)lista=lista.filter(f=>(f.fecha||'')>=d);
+  if(h)lista=lista.filter(f=>(f.fecha||'')<=h);
+  document.getElementById('tbody-facing').innerHTML=lista.map(f=>`<tr>
+    <td>${f.fecha||'—'}</td><td>${f.numero_documento||'—'}</td>
+    <td>${f.cliente_nombre||'—'}</td><td style="color:var(--muted)">${f.concepto||'—'}</td>
+    <td>${f.cuentas_contables?(f.cuentas_contables.numero_cuenta+' · '+f.cuentas_contables.nombre):'—'}</td>
+    <td>${fmt(f.monto_gravable)}</td>
+    <td style="color:#166534;font-weight:600">${fmt(f.itbms_cobrado)}</td>
+    <td><button class="btn btn-danger" onclick="eliminarFacturaIngreso('${f.id}')">&#215;</button></td>
+  </tr>`).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">Sin facturas de ingreso.</td></tr>';
+  const tg=lista.reduce((a,f)=>a+parseFloat(f.monto_gravable||0),0);
+  const te=lista.reduce((a,f)=>a+parseFloat(f.monto_exento||0),0);
+  const ti=lista.reduce((a,f)=>a+parseFloat(f.itbms_cobrado||0),0);
+  document.getElementById('fing-totales').innerHTML=kpi('kpi-blue','Gravable',fmt(tg),'')+kpi('kpi-blue','Exento',fmt(te),'')+kpi('kpi-green','ITBMS cobrado',fmt(ti),'');
+}
+function mfiAutoItbms(){const g=parseFloat(document.getElementById('mfi-grav').value)||0;document.getElementById('mfi-itbms').value=(g*0.07).toFixed(2);}
+function abrirNuevaFacIng(){
+  facIngEditandoId=null;
+  document.getElementById('mfi-title').textContent='Nueva factura de ingreso';
+  ['mfi-doc','mfi-cliente','mfi-ruc','mfi-dv','mfi-concepto','mfi-grav','mfi-exento','mfi-itbms','mfi-ret'].forEach(x=>document.getElementById(x).value='');
+  document.getElementById('mfi-fecha').value=new Date().toISOString().slice(0,10);
+  document.getElementById('mfi-cuenta').innerHTML='<option value="">—</option>'+cuentas.filter(c=>c.tipo==='ingreso'&&c.es_movimiento).map(c=>'<option value="'+c.id+'">'+c.numero_cuenta+' · '+c.nombre+'</option>').join('');
+  showModal('modal-factura-ingreso');
+}
+async function guardarFacturaIngreso(){
+  const id=clienteActivo?.id;
+  const fecha=document.getElementById('mfi-fecha').value;
+  if(!fecha){alert('La fecha es obligatoria');return;}
+  const payload={cliente_id:id,modulo:'contable',fecha,
+    anio:parseInt(fecha.slice(0,4)),mes:parseInt(fecha.slice(5,7)),
+    numero_documento:document.getElementById('mfi-doc').value||null,
+    cliente_nombre:document.getElementById('mfi-cliente').value||null,
+    ruc_cliente:document.getElementById('mfi-ruc').value||null,
+    dv:document.getElementById('mfi-dv').value||null,
+    concepto:document.getElementById('mfi-concepto').value||null,
+    cuenta_ingreso_id:document.getElementById('mfi-cuenta').value||null,
+    monto_gravable:parseFloat(document.getElementById('mfi-grav').value)||0,
+    monto_exento:parseFloat(document.getElementById('mfi-exento').value)||0,
+    itbms_cobrado:parseFloat(document.getElementById('mfi-itbms').value)||0,
+    retencion:parseFloat(document.getElementById('mfi-ret').value)||0};
+  const {error}=await sb.from('facturas_ingreso').insert(payload);
+  if(error){alert('Error: '+error.message);return;}
+  hideModal('modal-factura-ingreso');
+  await loadFacturasIngreso(id);renderFacturasIngreso();
+}
+async function eliminarFacturaIngreso(id){
+  if(!confirm('¿Eliminar esta factura de ingreso?'))return;
+  await sb.from('facturas_ingreso').delete().eq('id',id);
+  await loadFacturasIngreso(clienteActivo.id);renderFacturasIngreso();
+}
+
+/* ---------- Asientos (libro diario, partida doble) ---------- */
+function renderAsientos(){
+  const d=document.getElementById('as-desde')?.value||'';
+  const h=document.getElementById('as-hasta')?.value||'';
+  let lista=asientos.filter(a=>a.estado!=='anulado');
+  if(d)lista=lista.filter(a=>(a.fecha||'')>=d);
+  if(h)lista=lista.filter(a=>(a.fecha||'')<=h);
+  document.getElementById('lista-asientos').innerHTML=lista.map(a=>{
+    const lineas=a.asiento_lineas||[];
+    const td=lineas.reduce((s,l)=>s+parseFloat(l.debe||0),0);
+    const filas=lineas.map(l=>`<tr>
+      <td>${l.cuentas_contables?(l.cuentas_contables.numero_cuenta+' · '+l.cuentas_contables.nombre):'—'}</td>
+      <td style="color:var(--muted)">${l.descripcion||''}${l.proveedores?(' · '+l.proveedores.nombre):''}</td>
+      <td style="text-align:right">${parseFloat(l.debe||0)?fmt(l.debe):''}</td>
+      <td style="text-align:right">${parseFloat(l.haber||0)?fmt(l.haber):''}</td></tr>`).join('');
+    return `<div class="card" style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div><span style="font-weight:700">Asiento #${a.numero||'—'}</span>
+          <span style="color:var(--muted);margin-left:8px;font-size:12px">${a.fecha||''}</span>
+          ${a.proveedores?'<span class="tag tag-blue" style="margin-left:8px">'+a.proveedores.nombre+'</span>':''}</div>
+        <div><span style="font-weight:700;margin-right:10px">${fmt(td)}</span>
+          <button class="btn btn-danger" onclick="eliminarAsiento('${a.id}')">&#215;</button></div>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:6px">${a.descripcion||''}${a.referencia?(' · Ref: '+a.referencia):''}</div>
+      <div class="tbl-wrap"><table class="dt" style="min-width:460px"><tbody>${filas}</tbody></table></div>
+    </div>`;
+  }).join('')||'<div style="text-align:center;color:var(--muted);padding:24px">Sin asientos en el rango.</div>';
+}
+function abrirNuevoAsiento(){
+  if(!cuentasMov().length){alert('Primero crea cuentas en el Plan de cuentas.');return;}
+  document.getElementById('ma-fecha').value=new Date().toISOString().slice(0,10);
+  document.getElementById('ma-ref').value='';
+  document.getElementById('ma-desc').value='';
+  document.getElementById('ma-prov').innerHTML=optsProv('');
+  lineasAsiento=[{cuenta_id:'',descripcion:'',debe:'',haber:'',proveedor_id:''},{cuenta_id:'',descripcion:'',debe:'',haber:'',proveedor_id:''}];
+  renderLineasAsiento();
+  showModal('modal-asiento');
+}
+function addLineaAsiento(){lineasAsiento.push({cuenta_id:'',descripcion:'',debe:'',haber:'',proveedor_id:''});renderLineasAsiento();}
+function removeLineaAsiento(i){lineasAsiento.splice(i,1);renderLineasAsiento();}
+function renderLineasAsiento(){
+  document.getElementById('ma-lineas').innerHTML=lineasAsiento.map((l,i)=>`<div style="display:grid;grid-template-columns:2.2fr 1.4fr 1fr 1fr 28px;gap:6px;margin-bottom:6px">
+    <select class="fi" style="font-size:11px" onchange="lineasAsiento[${i}].cuenta_id=this.value">${optsCuentas(l.cuenta_id)}</select>
+    <input class="fi" style="font-size:11px" placeholder="detalle" value="${l.descripcion||''}" oninput="lineasAsiento[${i}].descripcion=this.value">
+    <input class="fi" style="font-size:11px" type="number" step="0.01" placeholder="0.00" value="${l.debe||''}" oninput="lineasAsiento[${i}].debe=this.value;lineasAsiento[${i}].haber='';maTotales()">
+    <input class="fi" style="font-size:11px" type="number" step="0.01" placeholder="0.00" value="${l.haber||''}" oninput="lineasAsiento[${i}].haber=this.value;lineasAsiento[${i}].debe='';maTotales()">
+    <button class="btn btn-danger" style="padding:3px 6px" onclick="removeLineaAsiento(${i})">&#215;</button>
+  </div>`).join('');
+  maTotales();
+}
+function maTotales(){
+  const td=lineasAsiento.reduce((s,l)=>s+(parseFloat(l.debe)||0),0);
+  const th=lineasAsiento.reduce((s,l)=>s+(parseFloat(l.haber)||0),0);
+  document.getElementById('ma-tdebe').textContent=fmt(td);
+  document.getElementById('ma-thaber').textContent=fmt(th);
+  const dif=Math.round((td-th)*100)/100;
+  const el=document.getElementById('ma-balance');
+  el.textContent=dif===0?'✓ cuadra':'descuadre: '+fmt(Math.abs(dif));
+  el.style.color=dif===0?'#166534':'var(--red)';
+}
+async function guardarAsiento(){
+  const id=clienteActivo?.id;
+  const fecha=document.getElementById('ma-fecha').value;
+  if(!fecha){alert('La fecha es obligatoria');return;}
+  const lineasV=lineasAsiento.filter(l=>l.cuenta_id&&((parseFloat(l.debe)||0)>0||(parseFloat(l.haber)||0)>0));
+  if(lineasV.length<2){alert('Un asiento necesita al menos 2 líneas con cuenta y monto.');return;}
+  const td=lineasV.reduce((s,l)=>s+(parseFloat(l.debe)||0),0);
+  const th=lineasV.reduce((s,l)=>s+(parseFloat(l.haber)||0),0);
+  if(Math.round((td-th)*100)!==0){alert('El asiento no cuadra: Debe ('+fmt(td)+') ≠ Haber ('+fmt(th)+').');return;}
+  const provCab=document.getElementById('ma-prov').value||null;
+  const {data:asi,error:e1}=await sb.from('asientos').insert({
+    cliente_id:id,fecha,descripcion:document.getElementById('ma-desc').value||null,
+    referencia:document.getElementById('ma-ref').value||null,proveedor_id:provCab,tipo:'manual'
+  }).select().single();
+  if(e1){alert('Error: '+e1.message);return;}
+  const filas=lineasV.map((l,idx)=>({asiento_id:asi.id,cliente_id:id,cuenta_id:l.cuenta_id,
+    proveedor_id:l.proveedor_id||provCab||null,descripcion:l.descripcion||null,
+    debe:parseFloat(l.debe)||0,haber:parseFloat(l.haber)||0,orden:idx}));
+  const {error:e2}=await sb.from('asiento_lineas').insert(filas);
+  if(e2){alert('Error en líneas: '+e2.message+' (el asiento se creó, revísalo)');}
+  hideModal('modal-asiento');
+  await loadAsientos(id);renderAsientos();
+}
+async function eliminarAsiento(id){
+  if(!confirm('¿Eliminar este asiento y sus líneas?'))return;
+  await sb.from('asientos').delete().eq('id',id);
+  await loadAsientos(clienteActivo.id);renderAsientos();
+}
+
+/* ---------- Motor de reportes (deriva del libro) ---------- */
+function movimientosContables(desde,hasta){
+  const rows=[];
+  asientos.filter(a=>a.estado!=='anulado').forEach(a=>{
+    if(desde&&(a.fecha||'')<desde)return;
+    if(hasta&&(a.fecha||'')>hasta)return;
+    (a.asiento_lineas||[]).forEach(l=>rows.push({
+      fecha:a.fecha,numero:a.numero,descripcion:a.descripcion,cuenta_id:l.cuenta_id,
+      debe:parseFloat(l.debe||0),haber:parseFloat(l.haber||0)}));
+  });
+  return rows;
+}
+function saldosPorCuenta(desde,hasta){
+  const map={};
+  movimientosContables(desde,hasta).forEach(r=>{
+    if(!map[r.cuenta_id])map[r.cuenta_id]={cuenta_id:r.cuenta_id,debe:0,haber:0};
+    map[r.cuenta_id].debe+=r.debe;map[r.cuenta_id].haber+=r.haber;
+  });
+  return Object.values(map).map(c=>{
+    const cta=cuentas.find(x=>x.id===c.cuenta_id)||{};
+    c.numero_cuenta=cta.numero_cuenta||'';c.nombre=cta.nombre||'';c.tipo=cta.tipo||'';
+    const nat=cta.naturaleza||naturalezaDe(cta.tipo);
+    c.saldo=nat==='deudora'?c.debe-c.haber:c.haber-c.debe;
+    return c;
+  }).sort((a,b)=>(a.numero_cuenta>b.numero_cuenta?1:-1));
+}
+
+/* ---------- Mayor General ---------- */
+function renderMayor(){
+  const selEl=document.getElementById('may-cuenta');
+  if(selEl&&!selEl.dataset.filled){selEl.innerHTML='<option value="">— Selecciona una cuenta —</option>'+cuentasMov().map(c=>'<option value="'+c.id+'">'+c.numero_cuenta+' · '+c.nombre+'</option>').join('');selEl.dataset.filled='1';}
+  const cuentaId=selEl?.value||'';
+  const d=document.getElementById('may-desde')?.value||'';
+  const h=document.getElementById('may-hasta')?.value||'';
+  const tb=document.getElementById('tbody-mayor');
+  if(!cuentaId){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">Selecciona una cuenta.</td></tr>';document.getElementById('may-totales').innerHTML='';return;}
+  const cta=cuentas.find(c=>c.id===cuentaId)||{};
+  const nat=cta.naturaleza||naturalezaDe(cta.tipo);
+  let movs=movimientosContables(d,h).filter(r=>r.cuenta_id===cuentaId)
+    .sort((a,b)=>((a.fecha||'')>(b.fecha||'')?1:(a.fecha||'')<(b.fecha||'')?-1:(a.numero-b.numero)));
+  let saldo=0,td=0,th=0;
+  tb.innerHTML=movs.map(r=>{
+    saldo+=nat==='deudora'?(r.debe-r.haber):(r.haber-r.debe);td+=r.debe;th+=r.haber;
+    return `<tr><td>${r.fecha||''}</td><td>#${r.numero||''}</td><td style="color:var(--muted)">${r.descripcion||''}</td>
+      <td style="text-align:right">${r.debe?fmt(r.debe):''}</td><td style="text-align:right">${r.haber?fmt(r.haber):''}</td>
+      <td style="text-align:right;font-weight:600">${fmt(saldo)}</td></tr>`;
+  }).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">Sin movimientos en el rango.</td></tr>';
+  document.getElementById('may-totales').innerHTML=kpi('kpi-blue','Total Debe',fmt(td),'')+kpi('kpi-blue','Total Haber',fmt(th),'')+kpi('kpi-purple','Saldo final',fmt(saldo),cta.naturaleza||'');
+}
+
+/* ---------- Balance General ---------- */
+function bloqueCuentas(titulo,arr,color){
+  const total=arr.reduce((s,c)=>s+c.saldo,0);
+  const filas=arr.filter(c=>Math.abs(c.saldo)>0.005).map(c=>`<tr><td style="padding-left:14px">${c.numero_cuenta} · ${c.nombre}</td><td style="text-align:right">${fmt(c.saldo)}</td></tr>`).join('');
+  return {html:`<tr style="background:#F4F6F9"><td style="font-weight:700">${titulo}</td><td style="text-align:right;font-weight:700;color:${color}">${fmt(total)}</td></tr>${filas}`,total};
+}
+function renderBalance(){
+  const h=document.getElementById('bg-hasta')?.value||'';
+  const s=saldosPorCuenta('',h);
+  const act=s.filter(c=>c.tipo==='activo');
+  const pas=s.filter(c=>c.tipo==='pasivo');
+  const pat=s.filter(c=>c.tipo==='patrimonio');
+  const utilidad=s.filter(c=>c.tipo==='ingreso').reduce((a,c)=>a+c.saldo,0)
+                -s.filter(c=>c.tipo==='costo'||c.tipo==='gasto').reduce((a,c)=>a+c.saldo,0);
+  const bAct=bloqueCuentas('ACTIVOS',act,'var(--blue)');
+  const bPas=bloqueCuentas('PASIVOS',pas,'#B45309');
+  const bPat=bloqueCuentas('PATRIMONIO',pat,'#166534');
+  const totalPasPat=bPas.total+bPat.total+utilidad;
+  const dif=Math.round((bAct.total-totalPasPat)*100)/100;
+  document.getElementById('bg-contenido').innerHTML=`
+    <div class="kpi-grid" style="margin-bottom:14px">
+      ${kpi('kpi-blue','Total Activos',fmt(bAct.total),h?('al '+h):'a la fecha')}
+      ${kpi('kpi-amber','Pasivo + Patrimonio',fmt(totalPasPat),'incluye resultado')}
+      ${kpi(dif===0?'kpi-green':'kpi-red','Diferencia',fmt(Math.abs(dif)),dif===0?'cuadra ✓':'revisar')}
+    </div>
+    <div class="tbl-wrap"><table class="dt" style="min-width:420px"><tbody>
+      ${bAct.html}
+      ${bPas.html}
+      ${bPat.html}
+      <tr><td style="padding-left:14px">Resultado del ejercicio</td><td style="text-align:right">${fmt(utilidad)}</td></tr>
+      <tr style="border-top:2px solid var(--text)"><td style="font-weight:800">TOTAL PASIVO + PATRIMONIO</td><td style="text-align:right;font-weight:800">${fmt(totalPasPat)}</td></tr>
+    </tbody></table></div>`;
+}
+
+/* ---------- Estado de Resultados ---------- */
+function renderResultados(){
+  const d=document.getElementById('er-desde')?.value||'';
+  const h=document.getElementById('er-hasta')?.value||'';
+  const s=saldosPorCuenta(d,h);
+  const ing=s.filter(c=>c.tipo==='ingreso');
+  const cos=s.filter(c=>c.tipo==='costo');
+  const gas=s.filter(c=>c.tipo==='gasto');
+  const tIng=ing.reduce((a,c)=>a+c.saldo,0);
+  const tCos=cos.reduce((a,c)=>a+c.saldo,0);
+  const tGas=gas.reduce((a,c)=>a+c.saldo,0);
+  const utilidad=tIng-tCos-tGas;
+  const blk=(t,arr)=>{const tot=arr.reduce((a,c)=>a+c.saldo,0);return `<tr style="background:#F4F6F9"><td style="font-weight:700">${t}</td><td style="text-align:right;font-weight:700">${fmt(tot)}</td></tr>`+arr.filter(c=>Math.abs(c.saldo)>0.005).map(c=>`<tr><td style="padding-left:14px">${c.numero_cuenta} · ${c.nombre}</td><td style="text-align:right">${fmt(c.saldo)}</td></tr>`).join('');};
+  document.getElementById('er-contenido').innerHTML=`
+    <div class="kpi-grid" style="margin-bottom:14px">
+      ${kpi('kpi-green','Ingresos',fmt(tIng),'')}
+      ${kpi('kpi-amber','Costos + Gastos',fmt(tCos+tGas),'')}
+      ${kpi(utilidad>=0?'kpi-blue':'kpi-red','Utilidad neta',fmt(utilidad),utilidad>=0?'ganancia':'pérdida')}
+    </div>
+    <div class="tbl-wrap"><table class="dt" style="min-width:420px"><tbody>
+      ${blk('INGRESOS',ing)}
+      ${blk('COSTOS',cos)}
+      ${blk('GASTOS',gas)}
+      <tr style="border-top:2px solid var(--text)"><td style="font-weight:800">UTILIDAD NETA</td><td style="text-align:right;font-weight:800;color:${utilidad>=0?'#166534':'var(--red)'}">${fmt(utilidad)}</td></tr>
+    </tbody></table></div>`;
 }
 
 init();
