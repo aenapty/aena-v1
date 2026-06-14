@@ -3612,7 +3612,7 @@ function renderConfig(){
     if(savedUser) document.getElementById('conf-username').value=savedUser;
     cargarLogoGuardado();
   }
-  const esF=moduloActivo==='itbms'||moduloActivo==='isr';
+  const esF=moduloActivo==='itbms'||moduloActivo==='isr'||moduloActivo==='contable';
   document.getElementById('config-clasificaciones').style.display=esF?'block':'none';
   document.getElementById('config-proveedores').style.display=esF?'block':'none';
   document.getElementById('config-tipos-permiso').style.display=moduloActivo==='rrhh'?'block':'none';
@@ -5060,10 +5060,16 @@ async function renderSAClientes(){
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-ghost btn-sm" onclick="verDetalleCliente('${c.id}')">Ver detalles</button>
+        <button class="btn btn-primary btn-sm" onclick="administrarCliente('${c.id}')">Administrar</button>
         <button class="btn btn-outline btn-sm" onclick="abrirEditarCliente('${c.id}')">Editar</button>
       </div>
     </div>`;
   }).join('')||'<div style="color:var(--muted);font-size:13px;padding:12px 0">No hay clientes registrados.</div>';
+}
+
+async function administrarCliente(id){
+  await cambiarCliente(id);
+  goPage('config');
 }
 
 async function verDetalleCliente(id){
