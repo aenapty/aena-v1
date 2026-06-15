@@ -511,7 +511,7 @@ table.dt th:first-child{padding-left:14px}
         </div>
         <div class="card" style="padding:0;overflow:hidden">
           <div class="tbl-wrap"><table class="dt">
-            <thead><tr><th>FECHA</th><th>N° FACTURA</th><th>PROVEEDOR</th><th>CONCEPTO</th><th id="fact-clasif-th">CLASIFICACIÓN</th><th>GRAVABLE</th><th>ITBMS / IMP.</th><th>TIPO</th><th></th></tr></thead>
+            <thead><tr><th>FECHA</th><th>N° FACTURA</th><th>PROVEEDOR</th><th>CONCEPTO</th><th id="fact-clasif-th">CLASIFICACIÓN</th><th>GRAVABLE</th><th>EXENTO</th><th>ITBMS / IMP.</th><th>TOTAL</th><th>TIPO</th><th></th></tr></thead>
             <tbody id="tbody-facturas"></tbody>
           </table></div>
         </div>
@@ -2097,14 +2097,16 @@ function renderFacturas(){
     <td style="color:var(--muted)">${f.detalle||f.concepto||'—'}</td>
     <td>${esC?cuentaTxt(f):(f.clasificaciones_gasto?.nombre||'—')}</td>
     <td>${fmt(f.monto_gravable)}</td>
+    <td>${fmt(f.monto_exento)}</td>
     <td style="color:#B45309;font-weight:600">${fmt(f.itbms_factura)}</td>
+    <td style="font-weight:700">${fmt((parseFloat(f.monto_gravable||0))+(parseFloat(f.monto_exento||0))+(parseFloat(f.itbms_factura||0)))}</td>
     <td><span class="tag tag-blue">${f.tipo||'Bien'}</span></td>
     <td><button class="btn btn-danger" onclick="eliminarFactura('${f.id}')">&#215;</button></td>
-  </tr>`).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">Sin registros.</td></tr>';
+  </tr>`).join('')||'<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px">Sin registros.</td></tr>';
   const tg=lista.reduce((a,f)=>a+parseFloat(f.monto_gravable||0),0);
   const te=lista.reduce((a,f)=>a+parseFloat(f.monto_exento||0),0);
   const ti=lista.reduce((a,f)=>a+parseFloat(f.itbms_factura||0),0);
-  document.getElementById('facturas-totales').innerHTML=kpi('kpi-blue','Gravable',fmt(tg),'')+kpi('kpi-blue','Exento',fmt(te),'')+kpi('kpi-amber','ITBMS / Impuesto',fmt(ti),'');
+  document.getElementById('facturas-totales').innerHTML=kpi('kpi-blue','Gravable',fmt(tg),'')+kpi('kpi-blue','Exento',fmt(te),'')+kpi('kpi-amber','ITBMS / Impuesto',fmt(ti),'')+kpi('kpi-green','Total',fmt(tg+te+ti),'');
 }
 function renderIngresos(){
   document.getElementById('tbody-ingresos').innerHTML=ingresos.map(ing=>'<tr><td style="font-weight:600">'+MESES[ing.mes-1]+'</td><td>'+fmt(ing.gravable)+'</td><td>'+fmt(ing.exento)+'</td><td style="color:#166534;font-weight:600">'+fmt(ing.itbms_cobrado)+'</td><td>'+fmt(ing.retenciones)+'</td><td style="font-weight:600">'+fmt(parseFloat(ing.gravable||0)+parseFloat(ing.exento||0))+'</td><td><button class="btn btn-danger" onclick="eliminarIngreso(\''+ing.id+'\')">×</button></td></tr>').join('')||'<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">Sin ingresos registrados</td></tr>';
