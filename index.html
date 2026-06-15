@@ -255,8 +255,15 @@ table.dt th:first-child{padding-left:14px}
 
 /* MODAL */
 .modal-overlay{position:fixed;inset:0;background:rgba(10,22,40,0.6);display:flex;align-items:flex-start;justify-content:center;z-index:100;padding:24px;overflow-y:auto;backdrop-filter:blur(4px)}
-#modal-factura:not(.hidden){pointer-events:none;background:transparent;backdrop-filter:none;align-items:stretch;justify-content:flex-end;padding:0}
-#modal-factura .modal{pointer-events:auto;margin:0;width:64%;max-width:820px;max-height:100vh;overflow-y:auto;border-radius:0;box-shadow:-10px 0 30px rgba(10,22,40,0.18)}
+#modal-factura:not(.hidden),.win-docked:not(.hidden){pointer-events:none;background:transparent;backdrop-filter:none;align-items:stretch;justify-content:flex-end;padding:0}
+#modal-factura .modal,.win-docked .modal{pointer-events:auto;position:relative;margin:0;width:64%;max-width:820px;max-height:100vh;overflow-y:auto;border-radius:0;box-shadow:-10px 0 30px rgba(10,22,40,0.18)}
+.win-minbtn{position:absolute;top:14px;right:46px;background:#F1F4F9;border:1px solid var(--border);border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:15px;line-height:1;color:var(--muted);display:flex;align-items:center;justify-content:center}
+.win-minbtn:hover{background:#E2E8F0;color:var(--text)}
+.win-tray{position:fixed;left:230px;bottom:14px;z-index:300;display:flex;gap:8px;flex-wrap:wrap}
+.win-pill{display:flex;align-items:center;gap:8px;background:var(--navy2);color:#fff;border-radius:10px;padding:8px 12px;font-size:12px;cursor:pointer;box-shadow:0 4px 14px rgba(10,22,40,0.25)}
+.win-pill.activo{outline:2px solid var(--blue)}
+.win-pill .win-x{color:rgba(255,255,255,0.6);font-size:14px}
+.win-pill .win-x:hover{color:#fff}
 .ft-tabs{display:flex;gap:4px;flex-wrap:wrap;margin:-4px -4px 16px;padding:6px 4px 0;border-bottom:1px solid var(--border)}
 .ft-tab{display:flex;align-items:center;gap:8px;font-size:12px;padding:7px 12px;border:1px solid var(--border);border-bottom:none;border-radius:8px 8px 0 0;background:#F1F4F9;color:var(--muted);cursor:pointer;max-width:190px}
 .ft-tab.activo{background:#fff;color:var(--text);font-weight:600;border-color:var(--blue);box-shadow:0 -2px 0 var(--blue) inset}
@@ -264,6 +271,13 @@ table.dt th:first-child{padding-left:14px}
 .ft-x{font-size:15px;line-height:1;color:var(--muted)}
 .ft-x:hover{color:var(--red)}
 .ft-nueva{font-size:16px;font-weight:700;color:var(--blue);justify-content:center;min-width:34px;background:transparent;border-color:transparent}
+#modal-asiento:not(.hidden),#modal-factura-ingreso:not(.hidden){pointer-events:none;background:transparent;backdrop-filter:none;align-items:stretch;justify-content:flex-end;padding:0}
+#modal-asiento .modal,#modal-factura-ingreso .modal{pointer-events:auto;margin:0;width:62%;max-width:820px;max-height:100vh;overflow-y:auto;border-radius:0;box-shadow:-10px 0 30px rgba(10,22,40,0.18)}
+.win-minbar{display:flex;justify-content:flex-end;margin:-6px -6px 4px}
+#min-tray{position:fixed;left:232px;bottom:14px;display:none;gap:8px;z-index:300;flex-wrap:wrap}
+.min-pill{display:flex;align-items:center;gap:10px;background:var(--navy2);color:#fff;font-size:12px;font-weight:600;padding:9px 14px;border-radius:10px;cursor:pointer;box-shadow:0 6px 18px rgba(10,22,40,0.28)}
+.min-pill-x{font-size:15px;line-height:1;color:rgba(255,255,255,0.55)}
+.min-pill-x:hover{color:#fff}
 .modal{background:#fff;border-radius:16px;padding:24px;width:100%;max-width:680px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,0.2)}
 .modal-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:20px;color:var(--text)}
 
@@ -965,8 +979,9 @@ table.dt th:first-child{padding-left:14px}
 </div>
 
 <!-- Modal: Factura de ingreso -->
-<div class="modal-overlay hidden" id="modal-factura-ingreso">
+<div class="modal-overlay win-docked hidden" id="modal-factura-ingreso">
   <div class="modal">
+    <div class="win-minbtn" onclick="minimizarVentana('modal-factura-ingreso')" title="Minimizar">–</div>
     <div class="modal-title" id="mfi-title">Nueva factura de ingreso</div>
     <div class="form-section">
       <div class="fg">
@@ -985,7 +1000,7 @@ table.dt th:first-child{padding-left:14px}
         <div><label class="fl">RETENCIÓN</label><input type="number" class="fi" id="mfi-ret" step="0.01" placeholder="0.00"></div>
       </div>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
-        <button class="btn btn-ghost btn-sm" onclick="hideModal('modal-factura-ingreso')">Cancelar</button>
+        <button class="btn btn-ghost btn-sm" onclick="cerrarVentana('modal-factura-ingreso')">Cancelar</button>
         <button class="btn btn-primary btn-sm" onclick="guardarFacturaIngreso()">Guardar</button>
       </div>
     </div>
@@ -993,8 +1008,9 @@ table.dt th:first-child{padding-left:14px}
 </div>
 
 <!-- Modal: Asiento contable -->
-<div class="modal-overlay hidden" id="modal-asiento">
+<div class="modal-overlay win-docked hidden" id="modal-asiento">
   <div class="modal" style="max-width:760px">
+    <div class="win-minbtn" onclick="minimizarVentana('modal-asiento')" title="Minimizar">–</div>
     <div class="modal-title">Nuevo asiento</div>
     <div class="form-section">
       <div class="fg">
@@ -1017,15 +1033,16 @@ table.dt th:first-child{padding-left:14px}
         <span id="ma-balance"></span>
       </div>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
-        <button class="btn btn-ghost btn-sm" onclick="hideModal('modal-asiento')">Cancelar</button>
+        <button class="btn btn-ghost btn-sm" onclick="cerrarVentana('modal-asiento')">Cancelar</button>
         <button class="btn btn-primary btn-sm" onclick="guardarAsiento()">Guardar asiento</button>
       </div>
     </div>
   </div>
 </div>
 
-<div class="modal-overlay hidden" id="modal-factura">
+<div class="modal-overlay win-docked hidden" id="modal-factura">
   <div class="modal">
+    <div class="win-minbtn" onclick="minimizarVentana('modal-factura')" title="Minimizar">–</div>
     <div id="ft-tabs" class="ft-tabs"></div>
     <div class="modal-title">Nueva factura</div>
     <div class="form-section">
@@ -3363,6 +3380,38 @@ async function guardarEdicionFacturaDesdeModal(){
   renderPage('facturas');
 }
 
+let winOpen={},winActivo=null;
+const WIN_LABELS={'modal-factura':'Facturas','modal-asiento':'Asiento','modal-factura-ingreso':'Factura ingreso'};
+function abrirVentana(modalId){
+  if(winActivo&&winActivo!==modalId) document.getElementById(winActivo).classList.add('hidden');
+  winOpen[modalId]=true; winActivo=modalId;
+  document.getElementById(modalId).classList.remove('hidden');
+  renderWinTray();
+}
+function minimizarVentana(modalId){
+  document.getElementById(modalId).classList.add('hidden');
+  if(winActivo===modalId) winActivo=null;
+  renderWinTray();
+}
+function restaurarVentana(modalId){
+  if(winActivo&&winActivo!==modalId) document.getElementById(winActivo).classList.add('hidden');
+  winActivo=modalId;
+  document.getElementById(modalId).classList.remove('hidden');
+  renderWinTray();
+}
+function cerrarVentana(modalId){
+  document.getElementById(modalId).classList.add('hidden');
+  delete winOpen[modalId];
+  if(winActivo===modalId) winActivo=null;
+  renderWinTray();
+}
+function renderWinTray(){
+  const tray=document.getElementById('win-tray'); if(!tray)return;
+  const ids=Object.keys(winOpen);
+  if(!ids.length){ tray.style.display='none'; tray.innerHTML=''; return; }
+  tray.style.display='flex';
+  tray.innerHTML=ids.map(id=>'<div class="win-pill'+(id===winActivo?' activo':'')+'" onclick="restaurarVentana(\''+id+'\')">'+(WIN_LABELS[id]||'Ventana')+'<span class="win-x" onclick="event.stopPropagation();cerrarVentana(\''+id+'\')">×</span></div>').join('');
+}
 let facturaTabs=[],facturaTabActiva=null,ftSeq=1;
 function gv(id){const e=document.getElementById(id);return e?e.value:'';}
 function sv(id,v){const e=document.getElementById(id);if(e)e.value=(v==null?'':v);}
@@ -3398,13 +3447,13 @@ function guardarSnapshotTabActivo(){
   if(t)t.snapshot=snapshotFacturaForm();
 }
 function abrirTabFactura(id){
-  if(id){ const ex=facturaTabs.find(t=>t.editandoId===id); if(ex){ document.getElementById('modal-factura').classList.remove('hidden'); activarFacturaTab(ex.key); return; } }
+  if(id){ const ex=facturaTabs.find(t=>t.editandoId===id); if(ex){ abrirVentana('modal-factura'); activarFacturaTab(ex.key); return; } }
   guardarSnapshotTabActivo();
   const key='ft'+(ftSeq++);
   const titulo = id ? ('Fact '+(((facturas.find(f=>f.id===id)||{}).numero_factura)||'#')) : 'Nueva';
   facturaTabs.push({key,editandoId:id||null,titulo,snapshot:null});
   facturaTabActiva=key;
-  document.getElementById('modal-factura').classList.remove('hidden');
+  abrirVentana('modal-factura');
   if(id) cargarFacturaEnForm(id); else nuevaFacturaEnForm();
   guardarSnapshotTabActivo();
   renderFacturaTabs();
@@ -3419,10 +3468,10 @@ function activarFacturaTab(key){
 }
 function cerrarFacturaTab(key){
   const idx=facturaTabs.findIndex(t=>t.key===key);
-  if(idx<0){document.getElementById('modal-factura').classList.add('hidden');return;}
+  if(idx<0){cerrarVentana('modal-factura');return;}
   const eraActiva=(key===facturaTabActiva);
   facturaTabs.splice(idx,1);
-  if(facturaTabs.length===0){ facturaTabActiva=null; document.getElementById('modal-factura').classList.add('hidden'); renderFacturaTabs(); return; }
+  if(facturaTabs.length===0){ facturaTabActiva=null; cerrarVentana('modal-factura'); renderFacturaTabs(); return; }
   if(eraActiva){ const next=facturaTabs[Math.max(0,idx-1)]; facturaTabActiva=next.key; restoreFacturaForm(next.snapshot); }
   renderFacturaTabs();
 }
@@ -5469,7 +5518,7 @@ function abrirNuevaFacIng(){
   ['mfi-doc','mfi-cliente','mfi-ruc','mfi-dv','mfi-concepto','mfi-grav','mfi-exento','mfi-itbms','mfi-ret'].forEach(x=>document.getElementById(x).value='');
   document.getElementById('mfi-fecha').value=new Date().toISOString().slice(0,10);
   document.getElementById('mfi-cuenta').innerHTML='<option value="">—</option>'+cuentas.filter(c=>c.tipo==='ingreso'&&c.es_movimiento).map(c=>'<option value="'+c.id+'">'+c.numero_cuenta+' · '+c.nombre+'</option>').join('');
-  showModal('modal-factura-ingreso');
+  abrirVentana('modal-factura-ingreso');
 }
 async function guardarFacturaIngreso(){
   const id=clienteActivo?.id;
@@ -5489,7 +5538,7 @@ async function guardarFacturaIngreso(){
     retencion:parseFloat(document.getElementById('mfi-ret').value)||0};
   const {error}=await sb.from('facturas_ingreso').insert(payload);
   if(error){alert('Error: '+error.message);return;}
-  hideModal('modal-factura-ingreso');
+  cerrarVentana('modal-factura-ingreso');
   await loadFacturasIngreso(id);renderFacturasIngreso();
 }
 async function eliminarFacturaIngreso(id){
@@ -5536,7 +5585,7 @@ function abrirNuevoAsiento(){
   document.getElementById('ma-prov').innerHTML=optsProv('');
   lineasAsiento=[{cuenta_id:'',descripcion:'',debe:'',haber:'',proveedor_id:''},{cuenta_id:'',descripcion:'',debe:'',haber:'',proveedor_id:''}];
   renderLineasAsiento();
-  showModal('modal-asiento');
+  abrirVentana('modal-asiento');
 }
 function addLineaAsiento(){lineasAsiento.push({cuenta_id:'',descripcion:'',debe:'',haber:'',proveedor_id:''});renderLineasAsiento();}
 function removeLineaAsiento(i){lineasAsiento.splice(i,1);renderLineasAsiento();}
@@ -5580,7 +5629,7 @@ async function guardarAsiento(){
     debe:parseFloat(l.debe)||0,haber:parseFloat(l.haber)||0,orden:idx}));
   const {error:e2}=await sb.from('asiento_lineas').insert(filas);
   if(e2){alert('Error en líneas: '+e2.message+' (el asiento se creó, revísalo)');}
-  hideModal('modal-asiento');
+  cerrarVentana('modal-asiento');
   await loadAsientos(id);renderAsientos();
 }
 async function eliminarAsiento(id){
@@ -5784,6 +5833,7 @@ init();
     </div>
   </div>
 </div>
+<div id="win-tray" class="win-tray" style="display:none"></div>
 
 </body>
 </html>
