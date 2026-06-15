@@ -1909,7 +1909,7 @@ function updateUI(){
 }
 
 async function cambiarCliente(id){
-  cerrarTodasLasVentanas();
+  capturarEstadoVentanas();
   clienteActivo=todosClientes.find(c=>c.id===id);
   await detectModulo();
   await loadTodo();
@@ -1918,6 +1918,7 @@ async function cambiarCliente(id){
   document.querySelectorAll('.client-btn').forEach(b=>b.classList.remove('active'));
   document.querySelector('.client-btn[data-id="'+id+'"]')?.classList.add('active');
   goPage('dashboard');
+  restaurarEstadoVentanas();
 }
 
 async function doLogin(){
@@ -1983,13 +1984,14 @@ function renderModuleSwitch(){
 }
 async function switchModulo(m){
   if(m===moduloActivo||!clienteActivo)return;
-  cerrarTodasLasVentanas();
+  capturarEstadoVentanas();
   moduloActivo=m;
   document.getElementById('loading')?.classList.remove('hidden');
   try{await loadTodo();}catch(e){console.error(e);}
   updateUI();
   buildNav();
   goPage('dashboard');
+  restaurarEstadoVentanas();
   document.getElementById('loading')?.classList.add('hidden');
 }
 function ni(p,icon,label){return '<div class="nav-item" id="nav-'+p+'" onclick="goPage(\''+p+'\')"><span class="nav-icon">'+icon+'</span>'+label+'</div>';}
@@ -3439,6 +3441,34 @@ function renderWinTray(){
   tray.innerHTML=ids.map(id=>'<div class="win-pill'+(id===winActivo?' activo':'')+'" onclick="restaurarVentana(\''+id+'\')">'+(WIN_LABELS[id]||'Ventana')+'<span class="win-x" onclick="event.stopPropagation();cerrarVentana(\''+id+'\')">×</span></div>').join('');
 }
 let facturaTabs=[],facturaTabActiva=null,ftSeq=1;
+let winStore={};
+function ctxKey(cid,mod){ return (cid||'?')+'|'+(mod||'?'); }
+function snapshotAsientoForm(){ return {fecha:gv('ma-fecha'),ref:gv('ma-ref'),desc:gv('ma-desc'),prov:gv('ma-prov')}; }
+function restoreAsientoForm(s){ if(!s)return; sv('ma-fecha',s.fecha);sv('ma-ref',s.ref);sv('ma-desc',s.desc); const p=document.getElementById('ma-prov'); if(p){try{p.innerHTML=optsProv(s.prov);}catch(e){}} try{renderLineasAsiento();}catch(e){} }
+function snapshotFacIngForm(){ const o={}; ['mfi-fecha','mfi-doc','mfi-cliente','mfi-ruc','mfi-dv','mfi-concepto','mfi-cuenta','mfi-grav','mfi-exento','mfi-itbms','mfi-ret'].forEach(k=>o[k]=gv(k)); return o; }
+function restoreFacIngForm(s){ if(!s)return; const cm=document.getElementById('mfi-cuenta'); if(cm){try{cm.innerHTML='<option value="">—</option>'+cuentas.filter(c=>c.tipo==='ingreso'&&c.es_movimiento).map(c=>'<option value="'+c.id+'">'+c.numero_cuenta+' · '+c.nombre+'</option>').join('');}catch(e){}} Object.keys(s).forEach(k=>sv(k,s[k])); }
+function capturarEstadoVentanas(){
+  if(!clienteActivo) return;
+  try{guardarSnapshotTabActivo();}catch(e){}
+  winStore[ctxKey(clienteActivo.id,moduloActivo)]={
+    facturaTabs, facturaTabActiva, ftSeq, winOpen, winActivo,
+    asientoSnap:snapshotAsientoForm(), facingSnap:snapshotFacIngForm(),
+    lineasAsientoCopy:JSON.parse(JSON.stringify(lineasAsiento||[]))
+  };
+}
+function restaurarEstadoVentanas(){
+  ['modal-factura','modal-asiento','modal-factura-ingreso','modal-cuenta','modal-proveedor','modal-cliente-detalle','modal-buscar-factura'].forEach(id=>{const e=document.getElementById(id);if(e)e.classList.add('hidden');});
+  const s = clienteActivo ? winStore[ctxKey(clienteActivo.id,moduloActivo)] : null;
+  if(!s){ facturaTabs=[];facturaTabActiva=null;ftSeq=1;winOpen={};winActivo=null; try{renderFacturaTabs();}catch(e){} try{renderWinTray();}catch(e){} return; }
+  facturaTabs=s.facturaTabs;facturaTabActiva=s.facturaTabActiva;ftSeq=s.ftSeq;
+  winOpen=s.winOpen||{};winActivo=s.winActivo||null;
+  lineasAsiento=s.lineasAsientoCopy||[];
+  if(facturaTabActiva){ const t=facturaTabs.find(x=>x.key===facturaTabActiva); try{restoreFacturaForm(t&&t.snapshot);}catch(e){} }
+  try{restoreAsientoForm(s.asientoSnap);}catch(e){}
+  try{restoreFacIngForm(s.facingSnap);}catch(e){}
+  if(winActivo && winOpen[winActivo]){ const e=document.getElementById(winActivo); if(e)e.classList.remove('hidden'); }
+  try{renderFacturaTabs();}catch(e){} try{renderWinTray();}catch(e){}
+}
 function cerrarTodasLasVentanas(){
   facturaTabs=[]; facturaTabActiva=null;
   winOpen={}; winActivo=null;
