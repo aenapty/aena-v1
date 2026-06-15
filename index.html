@@ -3207,6 +3207,8 @@ async function guardarFactura(){
   if(!lineasFactura.length){alert('Agrega al menos una línea');return;}
   const id=clienteActivo?.id;
   const esC=moduloActivo==='contable';
+  const dupN=numeroFacturaDuplicado();
+  if(dupN){alert('Ya existe una factura registrada con el número "'+dupN+'". No se permite duplicar. Si quieres corregirla, edita la existente desde la lista.');return;}
   let cpId='',itbmsCta=null,itbmsTotal=0;
   if(esC){
     cpId=document.getElementById('fc-contrapartida').value;
@@ -3355,6 +3357,8 @@ function cargarFacturaEnForm(id){
 async function guardarEdicionFacturaDesdeModal(){
   if(!facturaEditandoId)return;
   if(!lineasFactura.length){alert('Sin líneas de detalle.');return;}
+  const dupN=numeroFacturaDuplicado();
+  if(dupN){alert('Ya existe otra factura con el número "'+dupN+'". No se permite duplicar.');return;}
   const l=lineasFactura[0];
   const {error}=await sb.from('facturas').update({
     fecha_exacta:document.getElementById('fc-fecha').value||null,
@@ -3534,20 +3538,37 @@ async function guardarEdicionFactura() {
 async function eliminarFacturaDesdeEdicion() {
   const id = document.getElementById('ef-id').value;
   if (!confirm('¿Eliminar esta factura permanentemente?')) return;
-  await sb.from('facturas').delete().eq('id', id);
+  await eliminarFacturaYAsiento(id);
   await loadFacturas(clienteActivo?.id || usuario.cliente_id);
   hideModal('modal-buscar-factura');
   renderPage('facturas');
 }
 async function eliminarFacturaDesdeEdicion2(){
   if(!facturaEditandoId||!confirm('¿Eliminar esta factura permanentemente?'))return;
-  await sb.from('facturas').delete().eq('id',facturaEditandoId);
+  await eliminarFacturaYAsiento(facturaEditandoId);
   resetModalFactura();
   cerrarFacturaTab(facturaTabActiva);
   await loadFacturas(clienteActivo?.id||usuario.cliente_id);
   renderPage('facturas');
 }
-async function eliminarFactura(id){if(!confirm('¿Eliminar?'))return;await sb.from('facturas').delete().eq('id',id);await loadFacturas(clienteActivo.id);renderPage('facturas');}
+function numeroFacturaDuplicado(){
+  const nums=[...new Set((lineasFactura||[]).map(l=>(l.nf||'').trim()).filter(Boolean))];
+  if(!nums.length) return null;
+  const dup=facturas.find(f=>nums.includes((f.numero_factura||'').trim()) && f.id!==facturaEditandoId);
+  return dup?dup.numero_factura:null;
+}
+async function eliminarFacturaYAsiento(facturaId){
+  let asId=(facturas.find(x=>x.id===facturaId)||{}).asiento_id;
+  if(asId===undefined){ try{const {data}=await sb.from('facturas').select('asiento_id').eq('id',facturaId).single();asId=data&&data.asiento_id;}catch(e){} }
+  if(asId){
+    await sb.from('facturas').delete().eq('asiento_id',asId);   // borra todas las líneas de esa factura
+    await sb.from('asientos').delete().eq('id',asId);           // borra el asiento (y sus líneas en cascada)
+  } else {
+    await sb.from('facturas').delete().eq('id',facturaId);
+  }
+  if(clienteActivo) await loadAsientos(clienteActivo.id);
+}
+async function eliminarFactura(id){if(!confirm('¿Eliminar?'))return;await eliminarFacturaYAsiento(id);await loadFacturas(clienteActivo.id);renderPage('facturas');}
 
 function updateProvDatalist(){
   const dl=document.getElementById('prov-datalist');
@@ -5524,6 +5545,8 @@ async function guardarFacturaIngreso(){
   const id=clienteActivo?.id;
   const fecha=document.getElementById('mfi-fecha').value;
   if(!fecha){alert('La fecha es obligatoria');return;}
+  const ndoc=(document.getElementById('mfi-doc').value||'').trim();
+  if(ndoc && facturasIngreso.find(f=>(f.numero_documento||'').trim()===ndoc && f.id!==facIngEditandoId)){alert('Ya existe una factura de ingreso con el número "'+ndoc+'".');return;}
   const payload={cliente_id:id,modulo:'contable',fecha,
     anio:parseInt(fecha.slice(0,4)),mes:parseInt(fecha.slice(5,7)),
     numero_documento:document.getElementById('mfi-doc').value||null,
@@ -5634,8 +5657,12 @@ async function guardarAsiento(){
 }
 async function eliminarAsiento(id){
   if(!confirm('¿Eliminar este asiento y sus líneas?'))return;
-  await sb.from('asientos').delete().eq('id',id);
-  await loadAsientos(clienteActivo.id);renderAsientos();
+  try{ await sb.from('facturas').update({asiento_id:null}).eq('asiento_id',id); }catch(e){}
+  const {error}=await sb.from('asientos').delete().eq('id',id);
+  if(error){alert('No se pudo eliminar: '+error.message);return;}
+  await loadAsientos(clienteActivo.id);
+  try{ if(clienteActivo) await loadFacturas(clienteActivo.id); }catch(e){}
+  renderAsientos();
 }
 function irAOrigenAsiento(tabla,oid){
   if(tabla==='facturas'&&oid){
