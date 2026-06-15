@@ -1909,6 +1909,7 @@ function updateUI(){
 }
 
 async function cambiarCliente(id){
+  cerrarTodasLasVentanas();
   clienteActivo=todosClientes.find(c=>c.id===id);
   await detectModulo();
   await loadTodo();
@@ -1982,6 +1983,7 @@ function renderModuleSwitch(){
 }
 async function switchModulo(m){
   if(m===moduloActivo||!clienteActivo)return;
+  cerrarTodasLasVentanas();
   moduloActivo=m;
   document.getElementById('loading')?.classList.remove('hidden');
   try{await loadTodo();}catch(e){console.error(e);}
@@ -3437,6 +3439,13 @@ function renderWinTray(){
   tray.innerHTML=ids.map(id=>'<div class="win-pill'+(id===winActivo?' activo':'')+'" onclick="restaurarVentana(\''+id+'\')">'+(WIN_LABELS[id]||'Ventana')+'<span class="win-x" onclick="event.stopPropagation();cerrarVentana(\''+id+'\')">×</span></div>').join('');
 }
 let facturaTabs=[],facturaTabActiva=null,ftSeq=1;
+function cerrarTodasLasVentanas(){
+  facturaTabs=[]; facturaTabActiva=null;
+  winOpen={}; winActivo=null;
+  ['modal-factura','modal-asiento','modal-factura-ingreso','modal-cuenta','modal-proveedor','modal-cliente-detalle','modal-buscar-factura'].forEach(id=>{const e=document.getElementById(id);if(e)e.classList.add('hidden');});
+  try{renderFacturaTabs();}catch(e){}
+  try{renderWinTray();}catch(e){}
+}
 function gv(id){const e=document.getElementById(id);return e?e.value:'';}
 function sv(id,v){const e=document.getElementById(id);if(e)e.value=(v==null?'':v);}
 function snapshotFacturaForm(){
