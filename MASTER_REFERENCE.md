@@ -1,7 +1,8 @@
 # 📋 AENA Smart Business Control — Master Reference
 
 > **Metodología:** Al iniciar cada sesión, Claude debe leer este archivo primero.
-> Al finalizar cada sesión, Claude debe actualizar este archivo con los cambios realizados.
+> Al finalizar cada sesión, Claude debe actualizar este archivo y hacer push.
+> **Las claves privadas NO se guardan aquí** — van en el "Chat Inicial".
 
 ---
 
@@ -13,18 +14,28 @@
 | **Deploy Vercel** | https://aena-v1.vercel.app |
 | **Supabase Dashboard** | https://supabase.com/dashboard/project/dqobxvvpzzngljwdalnq |
 | **Supabase URL** | https://dqobxvvpzzngljwdalnq.supabase.co |
+| **Supabase anon/publishable key** | `sb_publishable_rCbSAjOlexErR9WBN-rfZA_8Tadpfa0` (pública, ya va en `index.html`) |
 
-> ⚠️ Las claves privadas (GitHub PAT, Supabase Service Key) se proporcionan en el chat inicial, NO se almacenan aquí.
+> ⚠️ El **GitHub PAT** y el **Supabase Service Role Key (legacy)** son privados.
+> El PAT se entrega en el Chat Inicial. El Service Role Key vive **solo** como variable
+> de entorno en Vercel (`SUPABASE_SERVICE_ROLE_KEY`), nunca en el repo ni en el cliente.
 
 ---
 
 ## 🏗️ Stack Técnico
 
-- **Frontend:** HTML + JavaScript vanilla (sin frameworks)
+- **Frontend:** HTML + JavaScript vanilla (sin frameworks, sin build step)
 - **Backend:** Supabase JS SDK vía CDN
-- **Auth:** Supabase Auth (usuarios con `auth.uid()`)
-- **Deploy:** Vercel (auto-deploy desde branch `main` de GitHub)
+- **Auth:** Supabase Auth — tabla `usuarios` keyed por `auth.uid()`, con `rol` (`super_admin`/`admin`) y `cliente_id`
+- **Serverless:** Vercel Functions en `/api` (Node)
+- **Deploy:** Vercel — auto-deploy al hacer push a `main`
 - **PWA:** Sí — manifest dinámico con logo base64 en `index.html`
+
+> 🛠️ **Limitación del entorno de Claude:** la terminal (bash) **NO** puede alcanzar
+> `*.supabase.co` ni `*.vercel.app` (solo github/npm/pypi). Por eso:
+> - El SQL lo corre **el usuario** en el SQL Editor de Supabase (Claude se lo entrega listo).
+> - Claude edita `index.html`, valida el JS (`node --check`), commitea y hace `git push`.
+> - No se puede probar endpoints ni queries desde bash; se prueba en la app desplegada.
 
 ---
 
@@ -32,190 +43,162 @@
 
 ```
 aena-v1/
-├── index.html          # App principal (~5000 líneas) — Panel de admin/usuario
-├── supervisor.html     # Panel de aprobación de solicitudes RRHH (vía token único)
-├── solicitud.html      # Formulario que llena el colaborador
-├── api/                # Carpeta de funciones API (Vercel)
-├── netlify/functions/  # Funciones legacy (no en uso activo)
-└── MASTER_REFERENCE.md # Este archivo
+├── index.html              # App principal (~5700+ líneas) — admin/usuario, todos los módulos
+├── supervisor.html         # Panel de aprobación RRHH (vía token único)
+├── solicitud.html          # Formulario que llena el colaborador (RRHH)
+├── api/
+│   ├── create-client.js    # Crea cliente en 1 paso (Auth user + cliente + módulos + plan)
+│   └── send-email.js       # Envío de correos
+├── netlify/functions/      # Legacy (no en uso activo)
+└── MASTER_REFERENCE.md     # Este archivo
 ```
+
+**Flujo de trabajo de Claude:** editar `index.html` → validar JS → `git commit` → `git push origin main` → Vercel despliega. Avisar al usuario que refresque (F5) tras ~1 min.
 
 ---
 
 ## 🗄️ Base de Datos — Supabase
 
-### Tablas y propósito
-
+### Tablas núcleo / RRHH
 | Tabla | Propósito |
 |---|---|
-| `clientes` | Empresas/tenants. Cada registro es un cliente de AENA |
-| `usuarios` | Usuarios autenticados (auth.uid()) |
-| `colaboradores` | Empleados de cada cliente |
-| `supervisores` | Supervisores de cada cliente (para aprobación de RRHH) |
+| `clientes` | Empresas/tenants |
+| `usuarios` | Usuarios autenticados (`auth.uid()`), `rol`, `cliente_id`, `email`, `nombre` |
 | `cliente_modulos` | Módulos activos por cliente (multimodular) |
-| `invitaciones` | Tokens de invitación para onboarding |
-| `movimientos_rrhh` | Registro final de vacaciones, incapacidades, permisos |
+| `colaboradores` / `supervisores` | Empleados y supervisores por cliente |
 | `solicitud_tokens` | Flujo de aprobación RRHH (token único por solicitud) |
-| `reposiciones_permiso` | Horas de reposición de permisos |
-| `tipos_permiso_config` | Configuración de tipos de permiso por cliente |
-| `facturas` | Gastos/compras del módulo financiero |
-| `ingresos` | Ingresos mensuales del módulo financiero |
-| `clasificaciones_gasto` | Categorías de gasto (ej: Combustible, Servicios Básicos) |
-| `proveedores` | Proveedores del módulo financiero |
+| `movimientos_rrhh` | Registro final: vacaciones, incapacidades, permisos |
+| `tipos_permiso_config`, `reposiciones_permiso`, `invitaciones` | Config y onboarding |
 
-### Columnas clave de `clasificaciones_gasto`
-```
-id, cliente_id, nombre, modulo, activo, created_at
-```
-> 🔜 PENDIENTE: Agregar `numero_cuenta` (text) y `tipo_cuenta` (text)
+### Tablas financieras / ITBMS / ISR
+| Tabla | Propósito |
+|---|---|
+| `facturas` | Facturas de **compra**/gastos. **1 fila por línea** (no hay tabla cabecera) |
+| `ingresos` | Ingresos mensuales agregados (gravable, exento, ITBMS cobrado, retenciones) |
+| `clasificaciones_gasto` | Categorías de gasto por nombre |
+| `proveedores` | id, cliente_id, nombre, ruc, dv, activo |
 
-### Columnas clave de `movimientos_rrhh`
-```
-id, cliente_id, colaborador_id, tipo (vacacion|incapacidad|permiso),
-subtipo, fecha_inicio, fecha_fin, dias, horas_extra, total_horas,
-anio_ciclo, horas_repuestas, entidad_emisora, numero_documento,
-descripcion, estado, created_at
-```
+**`facturas` (columnas relevantes):** `cliente_id, modulo, anio, mes, fecha_exacta, proveedor, ruc_proveedor, dv, concepto, detalle, numero_factura, clasificacion_id, monto_gravable, monto_exento, itbms_calculado, itbms_factura, retencion, tipo` **+ `cuenta_id` (→cuentas_contables) + `asiento_id` (→asientos)**.
 
-### Columnas clave de `solicitud_tokens`
-```
-id, cliente_id, colaborador_id, supervisor_id, tipo_movimiento,
-estado (pendiente_empleado|pendiente_supervisor|aprobado|rechazado|modificado|expirado),
-token_supervisor, datos_solicitud (jsonb), datos_modificados (jsonb),
-datos_aprobados (jsonb), movimiento_id, notas_empleado, notas_supervisor,
-empleado_envio_at, supervisor_abrio_at, supervisor_accion_at,
-supervisor_ip, supervisor_user_agent, created_at
-```
+### Tablas del MÓDULO CONTABLE (nuevas — sesión 2)
+Archivo SQL aplicado: `01_modulo_contable.sql` (se generó en outputs; el usuario ya lo corrió).
+
+| Tabla | Columnas clave |
+|---|---|
+| `cuentas_contables` | `id, cliente_id, numero_cuenta, nombre, tipo`(activo/pasivo/patrimonio/ingreso/costo/gasto)`, naturaleza`(deudora/acreedora)`, nivel, es_movimiento, cuenta_padre_id, activo, es_itbms`(bool) |
+| `asientos` | `id, cliente_id, numero`(correlativo auto vía trigger)`, fecha, descripcion, referencia, proveedor_id, tipo`(manual/factura)`, origen_tabla, origen_id, estado` |
+| `asiento_lineas` | `asiento_id`(**ON DELETE CASCADE**)`, cliente_id, cuenta_id, proveedor_id, descripcion, debe, haber, orden` |
+| `facturas_ingreso` | facturas de **venta** una por una: `cliente_id, modulo, fecha, anio, mes, numero_documento, cliente_nombre, ruc_cliente, dv, concepto, cuenta_ingreso_id, monto_gravable, monto_exento, itbms*, retencion` |
+
+**Función:** `seed_plan_cuentas(p_cliente_id uuid)` — siembra plan estándar Panamá:
+1101 Caja, 1102 Banco, 1103 CxC, 1104 Inventario, **1105 ITBMS Crédito Fiscal (`es_itbms=true`)**, 2101 CxP Proveedores, 2102 ITBMS por Pagar, 3101 Capital, 4101 Ingresos, 5101 Costo de Ventas, 6101–6108 Gastos (incl. 6108 Gastos Médicos).
+
+**Cuenta ITBMS:** la marcada `es_itbms=true` (por defecto 1105) recibe el crédito fiscal automático.
 
 ---
 
 ## 🔐 RLS (Row Level Security)
 
-### Patrón general
+Patrón general en casi todas las tablas:
 ```sql
--- La mayoría de tablas siguen este patrón:
-SELECT: es_super_admin() OR cliente_id = get_cliente_id()
-INSERT: null (permite anon — controlado por la app)
-UPDATE: es_super_admin() OR cliente_id = get_cliente_id()
-DELETE: es_super_admin() OR cliente_id = get_cliente_id()
+SELECT/UPDATE/DELETE: es_super_admin() OR cliente_id = get_cliente_id()
+INSERT: controlado por la app
 ```
+Las tablas contables (`cuentas_contables`, `asientos`, `asiento_lineas`, `facturas_ingreso`) llevan el mismo patrón por `cliente_id`.
 
-### Tablas con lectura pública (SELECT = true)
-- `clientes`, `colaboradores`, `supervisores`, `tipos_permiso_config`
-
-### ⚠️ Inconsistencia detectada
-Algunas tablas usan `es_super_admin()` / `get_cliente_id()` y otras usan
-`is_super_admin()` / `get_my_cliente_id()`. Son funciones equivalentes pero con
-nombres distintos. Pendiente unificar en una futura limpieza.
-
-### Tablas especiales
-- `solicitud_tokens`: tiene política UPDATE pública (para que supervisores puedan actualizar sin auth)
-- `invitaciones`: solo admin
+> ⚠️ Inconsistencia histórica: conviven `es_super_admin()`/`get_cliente_id()` con
+> `is_super_admin()`/`get_my_cliente_id()`. Equivalentes; pendiente unificar.
 
 ---
 
 ## 🧩 Módulos de la App
 
-### Módulo RRHH ✅ Completo
-**Flujo de solicitud:**
-1. Admin crea solicitud en `index.html` → se genera token único en `solicitud_tokens`
-2. Colaborador recibe link a `solicitud.html` → llena sus datos → estado pasa a `pendiente_supervisor`
-3. Supervisor recibe link a `supervisor.html?token=XXX` → Aprueba / Modifica / Rechaza
-4. Si aprueba → se inserta en `movimientos_rrhh` automáticamente
+`moduloActivo` global: `itbms` | `isr` | `rrhh` | `contable`. `detectModulo()` (async) resuelve los módulos del cliente desde `cliente_modulos`; para super_admin trae los reales. `switchModulo(m)` cambia sin cerrar sesión. UUIDs demo: `33333333…`=rrhh, `22222222…`=isr.
 
-**Tipos de movimiento:** `vacacion`, `incapacidad`, `permiso`
+### RRHH ✅
+Solicitud → token → colaborador llena (`solicitud.html`) → supervisor aprueba (`supervisor.html?token=`) → inserta en `movimientos_rrhh`. Tipos: `vacacion`, `incapacidad`, `permiso`.
 
-**Subtipos de permiso:** configurables por cliente en `tipos_permiso_config`
-- Campos: goce_salario, reposicion (boolean), nombre_tipo_permiso
+### ITBMS / ISR ✅
+Facturas de compra (1 fila/línea), ingresos mensuales, análisis y reportes ITBMS. Clientes reales: **Arenas & Barletta** (RRHH), **Dra. M.C. Lemm** (ITBMS), **Administradora** (ISR personal). NO romper.
 
-### Módulo Financiero 🔧 En mejora
-**Estado actual:**
-- Registro de facturas con: proveedor, fecha, monto, ITBMS, retención, clasificación
-- Registro de ingresos mensuales (gravable, exento, ITBMS cobrado, retenciones)
-- Clasificaciones de gasto por nombre (ej: Combustible, Servicios Básicos)
-- Gestión de proveedores con RUC y DV
+### CONTABLE ✅ (construido en sesión 2)
+Es un **módulo dentro de `index.html`** (no archivo aparte), aditivo y gateado por `moduloActivo==='contable'`. Incluye:
+- **Plan de cuentas** (CRUD): `renderPlanCuentas`, `abrirNuevaCuenta`/`abrirEdicionCuenta`/`guardarCuenta`/`eliminarCuenta` (modal `modal-cuenta`, con flag `es_itbms`).
+- **Asientos** (libro diario, partida doble): `renderAsientos`, `abrirNuevoAsiento`, editor debe/haber con validación de cuadre (`modal-asiento`), `eliminarAsiento`.
+- **Facturas de ingreso** (ventas): `renderFacturasIngreso`, `abrirNuevaFacIng`, `guardarFacturaIngreso` (`modal-factura-ingreso`).
+- **Factura de compra** con selector de **cuenta contable** por línea + "¿Cómo se pagó? (contrapartida)" → genera **asiento de partida doble** automático (`generarAsientoCompra`): debita gasto(s) + ITBMS, acredita la contrapartida (Caja/Banco/CxP). Liga `facturas.asiento_id` y `asientos.origen_id`.
+- **Reportes** derivados de `asientos`: **Mayor General** (`renderMayor`), **Balance General** (`renderBalance`), **Estado de Resultados** (`renderResultados`) — vía `movimientosContables()`/`saldosPorCuenta()`, filtrables por fecha.
 
-**Reportes actuales (NO TOCAR):**
-- Los reportes existentes deben mantenerse intactos
+---
 
-**🔜 MEJORAS PENDIENTES — MÓDULO CONTABLE:**
-Ver sección "Trabajo Pendiente" más abajo.
+## 🪟 Sistema de Ventanas / Pestañas (UI)
 
-### Módulo Base (todos los clientes)
-- Multi-tenant por `cliente_id`
-- Módulos activables por cliente en `cliente_modulos`
-- Onboarding por invitación (token en `invitaciones`)
+Diseño tipo "escritorio" para no bloquear el sistema al abrir formularios.
+
+- **Paneles acoplados no bloqueantes:** clase CSS `.win-docked` (overlay con `pointer-events:none`, panel a la derecha con `pointer-events:auto`) → el menú izquierdo siempre queda usable. Aplica a `modal-factura`, `modal-asiento`, `modal-factura-ingreso`.
+- **Botón minimizar** (`.win-minbtn` "–") en cada panel.
+- **Barra de ventanas (taskbar)** `#win-tray`: `winOpen{}`, `winActivo`, `abrirVentana`/`minimizarVentana`/`restaurarVentana`/`cerrarVentana`/`renderWinTray`. Solo se muestra un panel a la vez; los demás quedan minimizados en la barra inferior.
+- **Pestañas de facturas (varias a la vez):** `facturaTabs[]`, modelo de snapshots (`snapshotFacturaForm`/`restoreFacturaForm`), `abrirTabFactura`/`activarFacturaTab`/`cerrarFacturaTab`/`renderFacturaTabs`. `abrirEdicionFactura(id)` es un wrapper → `abrirTabFactura(id)`; el cuerpo de edición es `cargarFacturaEnForm(id)`.
+- **Estado por cliente+módulo:** `winStore{}` keyed por `ctxKey(cid,mod)`. `capturarEstadoVentanas()` y `restaurarEstadoVentanas()` se llaman en `cambiarCliente` y `switchModulo`: al cambiar de cliente/módulo se guardan las ventanas del contexto y se muestran solo las del nuevo; al volver, reaparecen como estaban. Incluye snapshots de asiento (`snapshotAsientoForm`/`restoreAsientoForm`) y factura de ingreso (`snapshotFacIngForm`/`restoreFacIngForm`).
+- Diálogos chicos (`modal-cuenta`, `modal-proveedor`) quedan como pop-up rápido centrado (no acoplados), para usarse encima de un formulario (ej. "+ Agregar cuenta" desde la factura).
+
+---
+
+## ✅ Reglas de Integridad (críticas)
+
+1. **No duplicar número de factura de compra:** `numeroFacturaDuplicado()` bloquea al guardar; distingue **alta vs edición** vía `facturaEditandoId` (no se marca a sí misma).
+2. **No duplicar número de documento** en facturas de ingreso (`guardarFacturaIngreso`).
+3. **Borrado en cascada:** `eliminarFacturaYAsiento(id)` borra todas las filas de esa factura (comparten `asiento_id`) **y** su asiento (líneas en cascada) → limpia Mayor/Balance/Resultados. Usado en `eliminarFactura`, `eliminarFacturaDesdeEdicion`, `eliminarFacturaDesdeEdicion2`.
+4. **Eliminar asiento** desvincula antes las facturas (`asiento_id=null`) para no chocar con el FK.
+5. **Editar factura regenera su asiento:** `guardarEdicionFacturaDesdeModal` borra el asiento viejo y vuelve a llamar `generarAsientoCompra` con los montos nuevos. `cargarFacturaEnForm` **precarga la contrapartida** desde la línea `haber` del asiento vinculado.
+6. **UX de guardado:** al guardar (alta o edición) el formulario se limpia y la pestaña queda lista para el siguiente registro, con toast `✓ guardado` (`resetTabFacturaActual` + `flashGuardado`). Evita doble clic / duplicados.
+7. **Totales en vivo:** `updateTotalItbms()` recalcula subtotal/ITBMS/total al escribir en gravable, **exento** e ITBMS.
+8. **Lista de facturas** muestra columnas: FECHA, N° FACTURA, PROVEEDOR, CONCEPTO, CUENTA/CLASIF, GRAVABLE, **EXENTO**, ITBMS, **TOTAL**, TIPO + KPIs (Gravable/Exento/ITBMS/Total).
+
+---
+
+## 👤 Super Admin — Herramientas
+
+- **Crear cliente en 1 paso:** `api/create-client.js` (usa `SUPABASE_SERVICE_ROLE_KEY` **legacy** como env var en Vercel; verifica que el llamante sea super_admin con la publishable key en `/auth/v1/user`). Frontend `guardarNuevoCliente()` con checkbox "AENA Contable" (siembra plan) y contraseña temporal opcional.
+- **Gestión de clientes** (Configuración): "Ver detalles" (`verDetalleCliente` → usuarios/correos/rol), "Administrar" (`administrarCliente`), "Editar".
+- **Recuperar acceso:** el correo del super_admin se ve en Supabase → Authentication → Users (o tabla `usuarios`, `rol=super_admin`). La contraseña **no se puede recuperar** (encriptada); se restablece desde "¿Olvidaste tu contraseña?" en el login o desde Supabase Auth.
 
 ---
 
 ## 🔜 Trabajo Pendiente
 
-### PRIORIDAD ALTA — Módulo Contable Básico
-
-El módulo financiero necesita evolucionar a un sistema contable básico.
-Los clientes AENA existentes NO se tocan. Esta mejora es para nuevos clientes.
-
-**1. Ampliar `clasificaciones_gasto`**
-```sql
-ALTER TABLE clasificaciones_gasto ADD COLUMN numero_cuenta TEXT;
-ALTER TABLE clasificaciones_gasto ADD COLUMN tipo_cuenta TEXT DEFAULT 'gasto';
--- tipo_cuenta values: activo | pasivo | patrimonio | ingreso | gasto
-```
-
-**2. Nuevas tablas por confirmar**
-- Posible `categorias_ingreso` con numero_cuenta (para el lado de ingresos)
-- Posible `cuentas_contables` (plan de cuentas maestro)
-
-**3. Nuevos reportes a crear**
-- **Mayor General** — transacciones por cuenta en orden de fecha
-- **Balance General** — posición financiera (pendiente definir alcance con usuario)
-
-**4. Preguntas pendientes de respuesta del usuario:**
-- ¿Plan de cuentas estándar de Panamá o libre?
-- ¿Balance General completo (activos/pasivos/patrimonio) o solo Estado de Resultados?
-- ¿Mayor General solo lado gastos o también ingresos individuales?
+- **Probar a fondo** el estado de ventanas por cliente (que el contenido de asiento/factura de ingreso restaure bien al volver).
+- Posible: hacer minimizables los diálogos chicos (cuenta/proveedor) si el usuario lo pide.
+- Posible: regenerar asiento también al editar una **factura de ingreso** (hoy ingreso no postea asiento automático).
+- Limpieza de SQL: unificar funciones RLS (`es_super_admin` vs `is_super_admin`).
+- Limpiar clientes de prueba sobrantes ("Cliente prueba - Contabilidad", demos) si ya no sirven.
 
 ---
 
 ## 📌 Decisiones de Arquitectura
 
-1. **Sin frameworks** — todo vanilla JS para mantener simplicidad y evitar build steps
-2. **Auto-deploy** — push a `main` en GitHub → Vercel despliega automáticamente (sin acción manual)
-3. **Supabase como BaaS** — no hay backend propio, toda la lógica va en el cliente o en RLS
-4. **Token único por solicitud RRHH** — no requiere auth del supervisor, solo el link con token
-5. **PWA** — la app se puede instalar en móvil (manifest + service worker)
-
----
-
-## 🔄 Metodología de Trabajo
-
-### Al iniciar un chat:
-1. El usuario pega el "Chat Inicial" con claves y contexto
-2. Claude lee este MASTER_REFERENCE.md desde GitHub
-3. Claude confirma qué tiene mapeado y pregunta por la tarea del día
-
-### Al finalizar un chat:
-1. Claude actualiza este MASTER_REFERENCE.md con:
-   - Cambios realizados en esa sesión
-   - Nuevas tablas o columnas creadas
-   - Trabajo pendiente actualizado
-2. Claude hace push del archivo actualizado a GitHub
-3. Claude genera el nuevo "Chat Inicial" para la próxima sesión
+1. Sin frameworks (vanilla JS, sin build).
+2. Auto-deploy: push a `main` → Vercel.
+3. Supabase como BaaS; lógica en cliente + RLS + funciones serverless puntuales.
+4. Contable = módulo dentro de `index.html`, aditivo y gateado (un cliente puede tener contable + rrhh, etc.).
+5. `facturas` = 1 fila por línea (sin tabla cabecera).
+6. Token único por solicitud RRHH (supervisor sin auth).
+7. Ventanas acopladas no bloqueantes + estado por cliente/módulo.
 
 ---
 
 ## 📝 Historial de Sesiones
 
 ### Sesión 1 — 2026-06-14
-**Lo que se hizo:**
-- Mapeo completo del proyecto (repo, Supabase, Vercel)
-- Revisión de schema completo (14 tablas) y políticas RLS
-- Configuración de GitHub Fine-grained PAT (solo repo aena-v1)
-- Creación de este MASTER_REFERENCE.md
-- Identificación de mejoras necesarias al módulo financiero (sistema contable básico)
+- Mapeo del proyecto (repo, Supabase, Vercel), schema (14 tablas) y RLS.
+- Configuración del GitHub Fine-grained PAT (solo repo aena-v1).
+- Creación de este MASTER_REFERENCE.md. Definición del alcance del módulo contable.
 
-**Pendiente definir con el usuario:**
-- Alcance exacto del Balance General
-- Tipo de plan de cuentas (estándar Panamá vs libre)
-- Si el Mayor General incluye ingresos individuales o solo gastos
+### Sesión 2 — 2026-06-15
+**Construido (todo en `main`, en vivo):**
+- **Módulo Contable completo:** SQL (`cuentas_contables`, `asientos`, `asiento_lineas`, `facturas_ingreso`, `seed_plan_cuentas`); plan de cuentas, asientos partida doble, facturas de compra con cuenta+contrapartida → asiento automático, facturas de ingreso, reportes Mayor/Balance/Estado de Resultados.
+- **Crear cliente en 1 paso** (`api/create-client.js` + `SUPABASE_SERVICE_ROLE_KEY` legacy en Vercel) y herramientas de super admin (ver detalles / administrar).
+- **Sistema de ventanas:** paneles acoplados no bloqueantes, pestañas de facturas (varias a la vez con snapshots), barra de ventanas con minimizar/restaurar, y **estado de ventanas por cliente+módulo** (`winStore`/`ctxKey`/`capturar`/`restaurar`).
+- **Integridad:** bloqueo de duplicados (factura/documento, distinguiendo alta vs edición), borrado en cascada factura→asiento, eliminar asiento desvincula facturas, editar factura regenera su asiento, UX de guardado que limpia y queda listo, totales en vivo (incl. exento), columnas Exento/Total en la lista.
 
+**Pendiente:** ver sección "Trabajo Pendiente".
