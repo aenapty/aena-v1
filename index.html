@@ -3339,6 +3339,13 @@ function cargarFacturaEnForm(id){
   }];
   renderLineas();
 
+  // Precargar la contrapartida ("¿cómo se pagó?") desde el asiento vinculado, si existe
+  if(f.asiento_id){
+    const as=asientos.find(a=>a.id===f.asiento_id);
+    const cp=as&&(as.asiento_lineas||[]).find(x=>parseFloat(x.haber||0)>0);
+    if(cp){ const el=document.getElementById('fc-contrapartida'); if(el) el.value=cp.cuenta_id; }
+  }
+
   // Cambiar título y botón
   document.querySelector('#modal-factura .modal-title').textContent='Editar factura';
   const btnGuardar=document.querySelector('#modal-factura .btn-primary');
@@ -3370,9 +3377,25 @@ async function guardarEdicionFacturaDesdeModal(){
     monto_gravable:parseFloat(l.gravable)||0,
     monto_exento:parseFloat(l.exento)||0,
     itbms_calculado:(parseFloat(l.gravable)||0)*0.07,
-    itbms_factura:parseFloat(l.itbms)||(parseFloat(l.gravable)||0)*0.07,
+    itbms_factura:moduloActivo==='contable'?(parseFloat(l.itbms)||0):(parseFloat(l.itbms)||(parseFloat(l.gravable)||0)*0.07),
   }).eq('id',facturaEditandoId);
   if(error){alert('Error: '+error.message);return;}
+  // Regenerar el asiento contable con los montos nuevos (para que Mayor/Balance/Resultados se actualicen)
+  if(moduloActivo==='contable'){
+    const idc=clienteActivo?.id;
+    const fAct=facturas.find(x=>x.id===facturaEditandoId)||{};
+    const oldAsId=fAct.asiento_id;
+    const cpId=document.getElementById('fc-contrapartida').value;
+    const itbmsTotal=lineasFactura.reduce((a,x)=>a+(parseFloat(x.itbms)||0),0);
+    const itbmsCta=cuentas.find(c=>c.es_itbms)||cuentas.find(c=>c.numero_cuenta==='1105');
+    const hayGasto=lineasFactura.some(x=>x.cuenta_id&&((parseFloat(x.gravable)||0)+(parseFloat(x.exento)||0))>0);
+    if(hayGasto&&cpId){
+      if(oldAsId){ try{ await sb.from('facturas').update({asiento_id:null}).eq('asiento_id',oldAsId); await sb.from('asientos').delete().eq('id',oldAsId);}catch(e){} }
+      await generarAsientoCompra(idc,[{id:facturaEditandoId,numero_factura:l.nf}],cpId,itbmsCta,itbmsTotal);
+    } else if(oldAsId){
+      alert('Aviso: el asiento contable NO se actualizó porque falta la cuenta del gasto o el campo "¿Cómo se pagó?". Vuelve a abrir la factura, complétalos y guarda para sincronizar el asiento con los reportes.');
+    }
+  }
   await loadFacturas(clienteActivo?.id||usuario.cliente_id);
   renderPage('facturas');
   resetTabFacturaActual();
