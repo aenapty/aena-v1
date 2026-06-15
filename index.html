@@ -3186,7 +3186,7 @@ function renderLineas(){
   '<input type="text" class="fi" placeholder="Detalle del gasto" value="'+(l.detalle||'')+'" oninput="lineasFactura['+i+'].detalle=this.value;lineasFactura['+i+'].concepto=this.value" style="font-size:11px">'+
   '<select class="fi" onchange="'+(esC?'onCuentaLineaChange('+i+',this.value)':'lineasFactura['+i+'].clasificacion_id=this.value')+'" style="font-size:11px">'+optsFor(esC?(l.cuenta_id||''):(l.clasificacion_id||''))+(esC?'<option value="__nueva__">+ Agregar cuenta…</option>':'')+'</select>'+
   '<input type="number" class="fi" placeholder="0.00" value="'+(l.gravable||'')+'" step="0.01" oninput="lineasFactura['+i+'].gravable=this.value;autoItbms('+i+')" style="font-size:11px">'+
-  '<input type="number" class="fi" placeholder="0.00" value="'+(l.exento||'')+'" step="0.01" oninput="lineasFactura['+i+'].exento=this.value" style="font-size:11px">'+
+  '<input type="number" class="fi" placeholder="0.00" value="'+(l.exento||'')+'" step="0.01" oninput="lineasFactura['+i+'].exento=this.value;updateTotalItbms()" style="font-size:11px">'+
   '<input type="number" class="fi" placeholder="0.00" value="'+(l.itbms||'')+'" step="0.01" id="itbms-linea-'+i+'" oninput="lineasFactura['+i+'].itbms=this.value;updateTotalItbms()" style="font-size:11px">'+
   '<button class="btn btn-danger" onclick="removeLinea('+i+')" style="padding:3px 6px">x</button>'+
   '</div>'
@@ -3252,14 +3252,9 @@ if(pvNombre&&!pvExistente){
   const {data:insertados,error}=await sb.from('facturas').insert(rows).select();
   if(error){alert('Error: '+error.message);return;}
   if(esC){await generarAsientoCompra(id,insertados||[],cpId,itbmsCta,itbmsTotal);}
-  cerrarFacturaTab(facturaTabActiva);lineasFactura=[];
-document.getElementById('fc-prov').value='';
-document.getElementById('fc-ruc').value='';
-document.getElementById('fc-dv').value='';
-document.getElementById('fc-fecha').value='';
-const cpEl=document.getElementById('fc-contrapartida');if(cpEl)cpEl.value='';
-const retEl=document.getElementById('fc-ret');if(retEl)retEl.value='';
-document.getElementById('fc-mes').value='1';await loadFacturas(id);renderPage('facturas');
+  await loadFacturas(id);renderPage('facturas');
+  resetTabFacturaActual();
+  flashGuardado('✓ Factura guardada. Listo para la siguiente.');
 }
 
 async function generarAsientoCompra(clienteId,facturaRows,contrapartidaId,itbmsCta,itbmsTotal){
@@ -3378,10 +3373,10 @@ async function guardarEdicionFacturaDesdeModal(){
     itbms_factura:parseFloat(l.itbms)||(parseFloat(l.gravable)||0)*0.07,
   }).eq('id',facturaEditandoId);
   if(error){alert('Error: '+error.message);return;}
-  resetModalFactura();
-  cerrarFacturaTab(facturaTabActiva);
   await loadFacturas(clienteActivo?.id||usuario.cliente_id);
   renderPage('facturas');
+  resetTabFacturaActual();
+  flashGuardado('✓ Cambios guardados. Listo para registrar.');
 }
 
 let winOpen={},winActivo=null;
@@ -3484,6 +3479,20 @@ function renderFacturaTabs(){
   if(!facturaTabs.length){ el.innerHTML=''; return; }
   el.innerHTML=facturaTabs.map(t=>'<div class="ft-tab'+(t.key===facturaTabActiva?' activo':'')+'" onclick="activarFacturaTab(\''+t.key+'\')"><span>'+(t.titulo||'Factura')+'</span><span class="ft-x" onclick="event.stopPropagation();cerrarFacturaTab(\''+t.key+'\')">×</span></div>').join('')
     +'<div class="ft-tab ft-nueva" title="Nueva factura" onclick="abrirTabFactura(null)">+</div>';
+}
+function resetTabFacturaActual(){
+  facturaEditandoId=null;
+  nuevaFacturaEnForm();
+  const t=facturaTabs.find(x=>x.key===facturaTabActiva);
+  if(t){ t.editandoId=null; t.titulo='Nueva'; t.snapshot=snapshotFacturaForm(); }
+  renderFacturaTabs();
+}
+function flashGuardado(msg){
+  let t=document.getElementById('save-toast');
+  if(!t){ t=document.createElement('div'); t.id='save-toast'; t.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#166534;color:#fff;padding:11px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:99999;box-shadow:0 6px 20px rgba(10,22,40,0.25);opacity:0;transition:opacity .25s'; document.body.appendChild(t); }
+  t.textContent=msg||'✓ Guardado';
+  t.style.opacity='1';
+  clearTimeout(t._to); t._to=setTimeout(()=>{t.style.opacity='0';},1800);
 }
 function resetModalFactura(){
   facturaEditandoId=null;
