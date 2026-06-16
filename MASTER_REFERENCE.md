@@ -91,9 +91,9 @@ Archivo SQL aplicado: `01_modulo_contable.sql` (se generó en outputs; el usuari
 | `facturas_ingreso` | facturas de **venta** una por una: `cliente_id, modulo, fecha, anio, mes, numero_documento, cliente_nombre, ruc_cliente, dv, concepto, cuenta_ingreso_id, monto_gravable, monto_exento, itbms*, retencion` |
 
 **Función:** `seed_plan_cuentas(p_cliente_id uuid)` — siembra plan estándar Panamá:
-1101 Caja, 1102 Banco, 1103 CxC, 1104 Inventario, **1105 ITBMS Crédito Fiscal (`es_itbms=true`)**, 2101 CxP Proveedores, 2102 ITBMS por Pagar, 3101 Capital, 4101 Ingresos, 5101 Costo de Ventas, 6101–6108 Gastos (incl. 6108 Gastos Médicos).
+1101 Caja, 1102 Banco, 1103 CxC, 1104 Inventario, 2101 CxP Proveedores, **2102 ITBMS por Pagar (`es_itbms=true`)**, 2103 Retenciones por Pagar, 2104 Impuestos por Pagar, 2105 Gastos Acumulados, 3101 Capital, 4101 Ingresos, 5101 Costo de Ventas, 6101–6107 Gastos. (La función termina con un `UPDATE … es_itbms=true WHERE numero_cuenta='2102'`.)
 
-**Cuenta ITBMS:** la marcada `es_itbms=true` (por defecto 1105) recibe el crédito fiscal automático.
+**Cuenta ITBMS — UNA SOLA (sesión 3):** Todo el ITBMS vive en **2102 ITBMS por Pagar** (`es_itbms=true`, pasivo/acreedora). **Compras → Debe** (crédito fiscal, baja lo que se debe); **Ventas → Haber** (lo que se cobra y se debe a la DGI). El **saldo neto de la 2102** = posición ante la DGI. La vieja **1105 "ITBMS Pagado"** quedó **desmarcada e inactiva** (`es_itbms=false, activo=false`); no se borró por integridad referencial. El código solo busca la cuenta con `es_itbms=true` (sin fallback a 1105).
 
 ---
 
@@ -125,8 +125,8 @@ Facturas de compra (1 fila/línea), ingresos mensuales, análisis y reportes ITB
 Es un **módulo dentro de `index.html`** (no archivo aparte), aditivo y gateado por `moduloActivo==='contable'`. Incluye:
 - **Plan de cuentas** (CRUD): `renderPlanCuentas`, `abrirNuevaCuenta`/`abrirEdicionCuenta`/`guardarCuenta`/`eliminarCuenta` (modal `modal-cuenta`, con flag `es_itbms`).
 - **Asientos** (libro diario, partida doble): `renderAsientos`, `abrirNuevoAsiento`, editor debe/haber con validación de cuadre (`modal-asiento`), `eliminarAsiento`.
-- **Facturas de ingreso** (ventas): `renderFacturasIngreso`, `abrirNuevaFacIng`, `guardarFacturaIngreso` (`modal-factura-ingreso`).
-- **Factura de compra** con selector de **cuenta contable** por línea + "¿Cómo se pagó? (contrapartida)" → genera **asiento de partida doble** automático (`generarAsientoCompra`): debita gasto(s) + ITBMS, acredita la contrapartida (Caja/Banco/CxP). Liga `facturas.asiento_id` y `asientos.origen_id`.
+- **Facturas de ingreso** (ventas): `renderFacturasIngreso`, `abrirNuevaFacIng`, `guardarFacturaIngreso` (`modal-factura-ingreso`). **Genera asiento automático al guardar** (sesión 3): Debe **CxC (1103)** por el total; Haber **cuenta de ingreso** elegida (gravable+exento); Haber **ITBMS 2102** por el ITBMS cobrado. Liga `facturas_ingreso.id` vía `asientos.origen_tabla='facturas_ingreso'`. Hoy solo **alta** (sin edición todavía).
+- **Factura de compra** con selector de **cuenta contable** por línea + "¿Cómo se pagó? (contrapartida)" → genera **asiento de partida doble** automático (`generarAsientoCompra`): debita gasto(s) + **ITBMS a la cuenta 2102** (Debe), acredita la contrapartida (Caja/Banco/CxP). Liga `facturas.asiento_id` y `asientos.origen_id`.
 - **Reportes** derivados de `asientos`: **Mayor General** (`renderMayor`), **Balance General** (`renderBalance`), **Estado de Resultados** (`renderResultados`) — vía `movimientosContables()`/`saldosPorCuenta()`, filtrables por fecha.
 
 ---
@@ -169,7 +169,7 @@ Diseño tipo "escritorio" para no bloquear el sistema al abrir formularios.
 
 - **Probar a fondo** el estado de ventanas por cliente (que el contenido de asiento/factura de ingreso restaure bien al volver).
 - Posible: hacer minimizables los diálogos chicos (cuenta/proveedor) si el usuario lo pide.
-- Posible: regenerar asiento también al editar una **factura de ingreso** (hoy ingreso no postea asiento automático).
+- **Editar facturas de ingreso:** hoy solo hay alta. Falta flujo de edición y que **regenere su asiento** al editar (como ya hace la factura de compra). ✅ El asiento automático *al guardar* (alta) ya quedó hecho en sesión 3.
 - Limpieza de SQL: unificar funciones RLS (`es_super_admin` vs `is_super_admin`).
 - Limpiar clientes de prueba sobrantes ("Cliente prueba - Contabilidad", demos) si ya no sirven.
 
@@ -202,3 +202,15 @@ Diseño tipo "escritorio" para no bloquear el sistema al abrir formularios.
 - **Integridad:** bloqueo de duplicados (factura/documento, distinguiendo alta vs edición), borrado en cascada factura→asiento, eliminar asiento desvincula facturas, editar factura regenera su asiento, UX de guardado que limpia y queda listo, totales en vivo (incl. exento), columnas Exento/Total en la lista.
 
 **Pendiente:** ver sección "Trabajo Pendiente".
+
+### Sesión 3 — 2026-06-15
+**ITBMS consolidado en una sola cuenta (pasivo 2102):**
+- **Código (`index.html`, en `main`):**
+  - `generarAsientoCompra` / edición de compra: el ITBMS ahora usa **solo** la cuenta `es_itbms=true` (se eliminó el fallback hardcoded a la 1105).
+  - `guardarFacturaIngreso`: ahora **genera asiento automático** al guardar (Debe CxC 1103 · Haber cuenta de ingreso · Haber ITBMS 2102).
+  - Corregido el texto de la alerta de ITBMS (mencionaba 2103; es 2102).
+- **SQL (corrido por Amilkar en Supabase):**
+  - Migración: líneas de asiento de la 1105 → 2102; `es_itbms` movido a la 2102; 1105 desactivada.
+  - `seed_plan_cuentas` actualizada: quita la 1105 del plan y marca la 2102 como `es_itbms=true` (clientes nuevos nacen bien).
+- **Resultado verificado:** 2102 `es_itbms=true, activo=true`; 1105 `es_itbms=false, activo=false`. Cliente afectado: `ab2450ae…` (único contable).
+- **Lógica final:** Compras → Debe 2102 (crédito fiscal); Ventas → Haber 2102; saldo neto 2102 = posición ante la DGI.
