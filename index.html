@@ -3219,11 +3219,11 @@ async function guardarFactura(){
   if(esC){
     cpId=document.getElementById('fc-contrapartida').value;
     itbmsTotal=lineasFactura.reduce((a,l)=>a+(parseFloat(l.itbms)||0),0);
-    itbmsCta=cuentas.find(c=>c.es_itbms)||cuentas.find(c=>c.numero_cuenta==='1105');
+    itbmsCta=cuentas.find(c=>c.es_itbms);
     const hayGasto=lineasFactura.some(l=>l.cuenta_id&&((parseFloat(l.gravable)||0)+(parseFloat(l.exento)||0))>0);
     if(!hayGasto){alert('Agrega al menos una línea con cuenta contable y monto.');return;}
     if(!cpId){alert('Elige cómo se pagó la factura (Caja, Banco o Cuentas por Pagar) en el encabezado.');return;}
-    if(itbmsTotal>0&&!itbmsCta){alert('Primero marca cuál cuenta es la de ITBMS en el Plan de cuentas (editar cuenta → "¿Es la cuenta de ITBMS?").');return;}
+    if(itbmsTotal>0&&!itbmsCta){alert('Primero marca cuál cuenta es la de ITBMS (pasivo) en el Plan de cuentas. Edita la cuenta 2103 ITBMS por Pagar → activa la opción "¿Es la cuenta de ITBMS?".');return;}
   }
   const mes=parseInt(document.getElementById('fc-mes').value);
 const rows=lineasFactura.map((l,idx)=>({
@@ -3393,7 +3393,7 @@ async function guardarEdicionFacturaDesdeModal(){
     const oldAsId=fAct.asiento_id;
     const cpId=document.getElementById('fc-contrapartida').value;
     const itbmsTotal=lineasFactura.reduce((a,x)=>a+(parseFloat(x.itbms)||0),0);
-    const itbmsCta=cuentas.find(c=>c.es_itbms)||cuentas.find(c=>c.numero_cuenta==='1105');
+    const itbmsCta=cuentas.find(c=>c.es_itbms);
     const hayGasto=lineasFactura.some(x=>x.cuenta_id&&((parseFloat(x.gravable)||0)+(parseFloat(x.exento)||0))>0);
     if(hayGasto&&cpId){
       if(oldAsId){ try{ await sb.from('facturas').update({asiento_id:null}).eq('asiento_id',oldAsId); await sb.from('asientos').delete().eq('id',oldAsId);}catch(e){} }
@@ -5620,20 +5620,56 @@ async function guardarFacturaIngreso(){
   if(!fecha){alert('La fecha es obligatoria');return;}
   const ndoc=(document.getElementById('mfi-doc').value||'').trim();
   if(ndoc && facturasIngreso.find(f=>(f.numero_documento||'').trim()===ndoc && f.id!==facIngEditandoId)){alert('Ya existe una factura de ingreso con el número "'+ndoc+'".');return;}
+  const gravable=parseFloat(document.getElementById('mfi-grav').value)||0;
+  const exento=parseFloat(document.getElementById('mfi-exento').value)||0;
+  const itbmsCobrado=parseFloat(document.getElementById('mfi-itbms').value)||0;
+  const retencion=parseFloat(document.getElementById('mfi-ret').value)||0;
+  const cuentaIngresoId=document.getElementById('mfi-cuenta').value||null;
+  const clienteNombre=document.getElementById('mfi-cliente').value||null;
+  const concepto=document.getElementById('mfi-concepto').value||null;
   const payload={cliente_id:id,modulo:'contable',fecha,
     anio:parseInt(fecha.slice(0,4)),mes:parseInt(fecha.slice(5,7)),
-    numero_documento:document.getElementById('mfi-doc').value||null,
-    cliente_nombre:document.getElementById('mfi-cliente').value||null,
+    numero_documento:ndoc||null,
+    cliente_nombre:clienteNombre,
     ruc_cliente:document.getElementById('mfi-ruc').value||null,
     dv:document.getElementById('mfi-dv').value||null,
-    concepto:document.getElementById('mfi-concepto').value||null,
-    cuenta_ingreso_id:document.getElementById('mfi-cuenta').value||null,
-    monto_gravable:parseFloat(document.getElementById('mfi-grav').value)||0,
-    monto_exento:parseFloat(document.getElementById('mfi-exento').value)||0,
-    itbms_cobrado:parseFloat(document.getElementById('mfi-itbms').value)||0,
-    retencion:parseFloat(document.getElementById('mfi-ret').value)||0};
-  const {error}=await sb.from('facturas_ingreso').insert(payload);
+    concepto,
+    cuenta_ingreso_id:cuentaIngresoId,
+    monto_gravable:gravable,
+    monto_exento:exento,
+    itbms_cobrado:itbmsCobrado,
+    retencion};
+  const {data:fiIns,error}=await sb.from('facturas_ingreso').insert(payload).select().single();
   if(error){alert('Error: '+error.message);return;}
+  // Generar asiento contable automatico para factura de ingreso
+  try{
+    const itbmsCta=cuentas.find(c=>c.es_itbms);
+    const totalBruto=Math.round((gravable+exento+itbmsCobrado)*100)/100;
+    if(cuentaIngresoId&&totalBruto>0){
+      const lineas=[];
+      const baseIngreso=Math.round((gravable+exento)*100)/100;
+      // Debe: Cuentas por Cobrar (1103) o cuenta activo corriente
+      const cxc=cuentas.find(c=>c.numero_cuenta==='1103')||cuentas.find(c=>c.tipo==='activo'&&c.es_movimiento&&(c.nombre||'').toLowerCase().includes('cobrar'));
+      if(cxc) lineas.push({cuenta_id:cxc.id,debe:totalBruto,haber:0,descripcion:'Factura '+(ndoc||concepto||'')});
+      // Haber: cuenta de ingreso (gravable + exento)
+      if(baseIngreso>0) lineas.push({cuenta_id:cuentaIngresoId,debe:0,haber:baseIngreso,descripcion:'Ingreso '+(concepto||'')});
+      // Haber: ITBMS por pagar (misma cuenta pasivo que se usa en compras al debe)
+      if(itbmsCobrado>0&&itbmsCta) lineas.push({cuenta_id:itbmsCta.id,debe:0,haber:Math.round(itbmsCobrado*100)/100,descripcion:'ITBMS por pagar s/venta'});
+      if(lineas.length>=2){
+        const {data:asi,error:e1}=await sb.from('asientos').insert({
+          cliente_id:id,fecha,
+          descripcion:'Venta '+(clienteNombre||'')+(ndoc?(' · Doc '+ndoc):''),
+          referencia:ndoc||null,tipo:'factura',
+          origen_tabla:'facturas_ingreso',origen_id:fiIns?.id||null
+        }).select().single();
+        if(!e1&&asi){
+          const filas=lineas.map((x,idx)=>({asiento_id:asi.id,cliente_id:id,cuenta_id:x.cuenta_id,descripcion:x.descripcion,debe:x.debe||0,haber:x.haber||0,orden:idx}));
+          await sb.from('asiento_lineas').insert(filas);
+          await loadAsientos(id);
+        }
+      }
+    }
+  }catch(e){console.error('No se pudo generar asiento de ingreso:',e);}
   cerrarVentana('modal-factura-ingreso');
   await loadFacturasIngreso(id);renderFacturasIngreso();
 }
