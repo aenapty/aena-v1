@@ -3223,7 +3223,7 @@ async function guardarFactura(){
     const hayGasto=lineasFactura.some(l=>l.cuenta_id&&((parseFloat(l.gravable)||0)+(parseFloat(l.exento)||0))>0);
     if(!hayGasto){alert('Agrega al menos una línea con cuenta contable y monto.');return;}
     if(!cpId){alert('Elige cómo se pagó la factura (Caja, Banco o Cuentas por Pagar) en el encabezado.');return;}
-    if(itbmsTotal>0&&!itbmsCta){alert('Primero marca cuál cuenta es la de ITBMS (pasivo) en el Plan de cuentas. Edita la cuenta 2103 ITBMS por Pagar → activa la opción "¿Es la cuenta de ITBMS?".');return;}
+    if(itbmsTotal>0&&!itbmsCta){alert('Primero marca cuál cuenta es la de ITBMS (pasivo) en el Plan de cuentas. Edita la cuenta 2102 ITBMS por Pagar → activa la opción "¿Es la cuenta de ITBMS?".');return;}
   }
   const mes=parseInt(document.getElementById('fc-mes').value);
 const rows=lineasFactura.map((l,idx)=>({
