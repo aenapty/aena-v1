@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AENA — Activar acceso</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#0A1628;--navy2:#0D1E38;
+  --blue:#0066FF;--blue2:#0052CC;--blue3:#3385FF;
+  --lime:#7FD84A;--lime2:#6BC43A;
+  --bg:#F0F4FA;--white:#fff;
+  --text:#1A2540;--muted:#6B7A99;--border:#DDE3F0;
+  --red:#EF4444;--amber:#F59E0B;--green:#22C55E;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+.topbar{background:var(--navy);padding:0 24px;height:56px;display:flex;align-items:center}
+.topbar-logo{display:flex;align-items:center;gap:10px}
+.logo-diamond{width:28px;height:28px;background:linear-gradient(135deg,var(--blue),var(--lime));border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:12px;color:#fff}
+.logo-text{font-family:'Syne',sans-serif;font-weight:800;font-size:16px;color:#fff;letter-spacing:1px}
+.logo-sub{font-size:9px;color:rgba(255,255,255,.5);letter-spacing:2px;font-weight:400;text-transform:uppercase}
+.container{max-width:480px;width:100%;margin:0 auto;padding:32px 16px;flex:1}
+.card{background:#fff;border-radius:16px;box-shadow:0 1px 3px rgba(10,22,40,.08),0 4px 16px rgba(10,22,40,.06);padding:28px}
+.page-title{font-family:'Syne',sans-serif;font-weight:700;font-size:20px;color:var(--navy);margin-bottom:4px}
+.page-sub{font-size:13px;color:var(--muted);margin-bottom:22px}
+.fl{display:block;font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+.fi{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:'DM Sans',sans-serif;color:var(--text);background:#fff;outline:none}
+.fi:focus{border-color:var(--blue)}
+.fi:disabled{background:#F8FAFC;color:var(--muted)}
+.fg{margin-bottom:14px}
+.btn{padding:11px 20px;border-radius:8px;font-family:'Syne',sans-serif;font-weight:700;font-size:14px;cursor:pointer;border:none;letter-spacing:.3px;transition:all .15s;width:100%}
+.btn-primary{background:var(--blue);color:#fff}
+.btn-primary:hover{background:var(--blue2)}
+.btn-primary:disabled{background:#93C5FD;cursor:not-allowed}
+.alert{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:14px}
+.alert-info{background:#EFF6FF;color:#1D4ED8;border:1px solid #BFDBFE}
+.alert-success{background:#F0FDF4;color:#166534;border:1px solid #BBF7D0}
+.alert-error{background:#FEF2F2;color:#991B1B;border:1px solid #FECACA}
+.empresas-box{background:#F8FAFC;border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:18px}
+.empresas-box .fl{margin-bottom:8px}
+.empresa-chip{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1.5px solid var(--blue3);color:var(--blue2);font-weight:600;font-size:12px;padding:5px 10px;border-radius:20px;margin:3px 4px 3px 0}
+#loading-state{text-align:center;padding:60px 20px}
+.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.hidden{display:none!important}
+.footer{text-align:center;padding:20px;font-size:11px;color:var(--muted);font-family:'Syne',sans-serif;letter-spacing:1px}
+.hint{font-size:11px;color:var(--muted);margin-top:5px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">
+    <div class="logo-diamond">A</div>
+    <div>
+      <div class="logo-text">AENA</div>
+      <div class="logo-sub">Smart Business Control</div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+
+  <div id="loading-state">
+    <div class="spinner"></div>
+    <div style="color:var(--muted);font-size:13px">Validando tu invitación…</div>
+  </div>
+
+  <!-- Invitación inválida / expirada -->
+  <div id="invalid-state" class="card hidden">
+    <div class="page-title">Invitación no válida</div>
+    <div id="invalid-msg" class="alert alert-error" style="margin-top:14px"></div>
+    <div class="page-sub">Pídele a quien te invitó que te genere un enlace nuevo.</div>
+  </div>
+
+  <!-- Formulario de activación -->
+  <div id="form-state" class="card hidden">
+    <div class="page-title">Activa tu acceso</div>
+    <div class="page-sub">Crea tu contraseña para empezar a usar AENA.</div>
+
+    <div class="empresas-box">
+      <span class="fl">Tendrás acceso a</span>
+      <div id="empresas-list"></div>
+    </div>
+
+    <div id="form-error" class="alert alert-error hidden"></div>
+
+    <div class="fg">
+      <label class="fl" for="inv-nombre">Tu nombre</label>
+      <input id="inv-nombre" class="fi" type="text" placeholder="Nombre y apellido" autocomplete="name">
+    </div>
+    <div class="fg">
+      <label class="fl" for="inv-email">Tu correo</label>
+      <input id="inv-email" class="fi" type="email" placeholder="tucorreo@ejemplo.com" autocomplete="email">
+    </div>
+    <div class="fg">
+      <label class="fl" for="inv-pass">Crea una contraseña</label>
+      <input id="inv-pass" class="fi" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
+    </div>
+    <div class="fg">
+      <label class="fl" for="inv-pass2">Repite la contraseña</label>
+      <input id="inv-pass2" class="fi" type="password" placeholder="Repite tu contraseña" autocomplete="new-password">
+    </div>
+
+    <button id="inv-btn" class="btn btn-primary" onclick="activar()">Activar mi acceso</button>
+  </div>
+
+  <!-- Éxito -->
+  <div id="success-state" class="card hidden">
+    <div class="page-title">¡Listo! 🎉</div>
+    <div class="alert alert-success" style="margin-top:14px">Tu acceso quedó activado. Ya puedes iniciar sesión.</div>
+    <a href="/" class="btn btn-primary" style="display:block;text-align:center;text-decoration:none;margin-top:6px">Ir a iniciar sesión</a>
+  </div>
+
+</div>
+
+<div class="footer">AENA — Smart Business Control</div>
+
+<script>
+const params = new URLSearchParams(location.search);
+const TOKEN = params.get('token');
+let emailFijo = null;
+
+function show(id){
+  ['loading-state','invalid-state','form-state','success-state'].forEach(s=>{
+    document.getElementById(s).classList.toggle('hidden', s!==id);
+  });
+}
+function formError(msg){
+  const e=document.getElementById('form-error');
+  if(!msg){e.classList.add('hidden');return;}
+  e.textContent=msg; e.classList.remove('hidden');
+}
+
+async function init(){
+  if(!TOKEN){ document.getElementById('invalid-msg').textContent='Enlace incompleto: falta el token.'; show('invalid-state'); return; }
+  try{
+    const r = await fetch('/api/aceptar-invitacion?token='+encodeURIComponent(TOKEN));
+    const data = await r.json();
+    if(!r.ok || !data.ok){
+      document.getElementById('invalid-msg').textContent = data.error || 'No se pudo validar la invitación.';
+      show('invalid-state'); return;
+    }
+    // Pintar empresas
+    document.getElementById('empresas-list').innerHTML =
+      (data.empresas||[]).map(n=>'<span class="empresa-chip">🏢 '+n+'</span>').join('') || '<span class="hint">—</span>';
+    // Correo fijo si la invitación lo trae
+    if(data.email_fijo){
+      emailFijo = data.email_fijo;
+      const ei=document.getElementById('inv-email');
+      ei.value = data.email_fijo; ei.disabled = true;
+    }
+    show('form-state');
+  }catch(e){
+    document.getElementById('invalid-msg').textContent='Error de conexión. Intenta de nuevo.';
+    show('invalid-state');
+  }
+}
+
+async function activar(){
+  formError('');
+  const nombre=document.getElementById('inv-nombre').value.trim();
+  const email=(emailFijo||document.getElementById('inv-email').value).trim();
+  const pass=document.getElementById('inv-pass').value;
+  const pass2=document.getElementById('inv-pass2').value;
+  if(!nombre){formError('Escribe tu nombre.');return;}
+  if(!email){formError('Escribe tu correo.');return;}
+  if(pass.length<6){formError('La contraseña debe tener al menos 6 caracteres.');return;}
+  if(pass!==pass2){formError('Las contraseñas no coinciden.');return;}
+
+  const btn=document.getElementById('inv-btn');
+  btn.disabled=true; btn.textContent='Activando…';
+  try{
+    const r=await fetch('/api/aceptar-invitacion',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({token:TOKEN,email,password:pass,nombre})
+    });
+    const data=await r.json();
+    if(!r.ok || !data.ok){ formError(data.error||'No se pudo activar.'); btn.disabled=false; btn.textContent='Activar mi acceso'; return; }
+    show('success-state');
+  }catch(e){
+    formError('Error de conexión. Intenta de nuevo.');
+    btn.disabled=false; btn.textContent='Activar mi acceso';
+  }
+}
+
+init();
+</script>
+</body>
+</html>

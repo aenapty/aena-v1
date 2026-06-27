@@ -746,7 +746,10 @@ table.dt th:first-child{padding-left:14px}
           <div class="form-section">
             <div class="form-section-title" style="display:flex;justify-content:space-between;align-items:center">
               <span>👑 Gestión de clientes</span>
-              <button class="btn btn-primary btn-sm" onclick="showModal('modal-nuevo-cliente')">+ Nuevo cliente</button>
+              <span style="display:flex;gap:8px">
+                <button class="btn btn-outline btn-sm" onclick="abrirInvitar()">✉ Invitar usuario</button>
+                <button class="btn btn-primary btn-sm" onclick="showModal('modal-nuevo-cliente')">+ Nuevo cliente</button>
+              </span>
             </div>
             <div id="sa-clientes-list" style="margin-top:8px"></div>
           </div>
@@ -931,6 +934,51 @@ table.dt th:first-child{padding-left:14px}
       </div>
 
 <!-- MODALS -->
+<!-- Modal: Invitar usuario (multiempresa) -->
+<div class="modal-overlay hidden" id="modal-invitar">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-title">✉ Invitar usuario</div>
+    <div class="form-section">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Marca las empresas a las que tendrá acceso. Se genera un enlace de un solo uso que la persona abre para crear su propia contraseña.</div>
+
+      <label class="fl">Empresas con acceso</label>
+      <div id="inv-empresas" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;max-height:200px;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:10px"></div>
+
+      <div class="fg">
+        <div><label class="fl">Rol</label><select class="fi" id="inv-rol">
+          <option value="admin">Administrador (ver y registrar)</option>
+        </select></div>
+        <div><label class="fl">Vence en</label><select class="fi" id="inv-exp">
+          <option value="72">72 horas</option>
+          <option value="24">24 horas</option>
+          <option value="168">7 días</option>
+        </select></div>
+      </div>
+
+      <div class="fg">
+        <label class="fl">Correo (opcional — para reservar el enlace a esa persona)</label>
+        <input type="email" class="fi" id="inv-email-lock" placeholder="Dejar vacío para que ella escriba su correo">
+      </div>
+
+      <div id="inv-result" class="hidden" style="margin-top:8px">
+        <label class="fl">Enlace de invitación (cópialo y envíalo)</label>
+        <div style="display:flex;gap:8px">
+          <input type="text" class="fi" id="inv-link" readonly style="font-size:12px">
+          <button class="btn btn-primary btn-sm" onclick="copiarInvLink()" style="white-space:nowrap">Copiar</button>
+        </div>
+        <div class="hint" style="font-size:11px;color:var(--muted);margin-top:6px">Un solo uso. Cuando la persona lo active, el enlace deja de funcionar.</div>
+      </div>
+
+      <div id="inv-error" class="alert alert-error hidden" style="margin-top:10px"></div>
+
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+        <button class="btn btn-ghost btn-sm" onclick="hideModal('modal-invitar')">Cerrar</button>
+        <button class="btn btn-primary btn-sm" id="inv-gen-btn" onclick="generarInvitacion()">Generar enlace</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: Detalle de cliente (super admin) -->
 <div class="modal-overlay hidden" id="modal-cliente-detalle">
   <div class="modal" style="max-width:560px">
@@ -1684,9 +1732,27 @@ async function loadUser(authUser){
       clienteActivo=todosClientes[0];
       modulos=[{modulo:'itbms'},{modulo:'isr'},{modulo:'rrhh'}];
     } else {
-      const {data:c}=await sb.from('clientes').select('*').eq('id',u.cliente_id).single();
-      clienteActivo=c;
-      const {data:mods}=await sb.from('cliente_modulos').select('*').eq('cliente_id',u.cliente_id).eq('activo',true);
+      // Multiempresa: lee las empresas asignadas al usuario en usuario_clientes.
+      // Si no hay tabla/filas (esquema viejo), cae al cliente_id único (retrocompatible).
+      let clientesUsuario=[];
+      try{
+        const {data:uc}=await sb.from('usuario_clientes')
+          .select('clientes(*)').eq('usuario_id',u.id);
+        clientesUsuario=(uc||[]).map(r=>r.clientes).filter(Boolean);
+      }catch(e){clientesUsuario=[];}
+      if(clientesUsuario.length){
+        // Ordena por nombre para un selector estable
+        clientesUsuario.sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
+        todosClientes=clientesUsuario;
+        clienteActivo=todosClientes[0];
+      } else {
+        const {data:c}=await sb.from('clientes').select('*').eq('id',u.cliente_id).single();
+        todosClientes=c?[c]:[];
+        clienteActivo=c;
+      }
+      // Módulos del cliente activo (detectModulo los recalcula al cambiar de empresa)
+      const actId=clienteActivo?.id;
+      const {data:mods}=actId?await sb.from('cliente_modulos').select('*').eq('cliente_id',actId).eq('activo',true):{data:[]};
       modulos=mods||[];
     }
     await detectModulo();
@@ -1700,9 +1766,10 @@ async function detectModulo(){
   const id=clienteActivo.id;
   if(id==='33333333-3333-3333-3333-333333333333'){moduloActivo='rrhh';modulosCliente=['rrhh'];return;}
   if(id==='22222222-2222-2222-2222-222222222222'){moduloActivo='isr';modulosCliente=['isr'];return;}
-  // Determina los módulos activos del cliente ACTIVO (también para super_admin)
+  // Determina los módulos activos del cliente ACTIVO.
+  // Super admin y usuarios con varias empresas recalculan por empresa.
   let mods=modulos;
-  if(usuario?.rol==='super_admin'){
+  if(usuario?.rol==='super_admin' || todosClientes.length>1){
     try{const {data}=await sb.from('cliente_modulos').select('modulo').eq('cliente_id',id).eq('activo',true);mods=data||[];}catch(e){mods=[];}
   }
   modulosCliente=(mods||[]).map(m=>m.modulo);
@@ -2021,9 +2088,12 @@ function itbmsRes(mes){
 
 function renderDash(){
   const isSA=usuario.rol==='super_admin';
+  const multiEmpresa=isSA || todosClientes.length>1;
   const sel=document.getElementById('super-client-selector');
-  if(isSA){
+  if(multiEmpresa){
     sel.classList.remove('hidden');
+    const lbl=sel.querySelector('.client-selector-label');
+    if(lbl)lbl.textContent=isSA?'CLIENTE':'EMPRESA';
     document.getElementById('client-selector-btns').innerHTML=todosClientes.map(c=>'<button class="client-btn '+(c.id===clienteActivo?.id?'active':'')+'" data-id="'+c.id+'" onclick="cambiarCliente(\''+c.id+'\')">'+c.nombre+'</button>').join('');
   } else sel.classList.add('hidden');
 
@@ -5336,6 +5406,46 @@ const MODULOS_DISPONIBLES=[
   {key:'rrhh',label:'AENA Workforce — RRHH'},
   {key:'contable',label:'AENA Contable'}
 ];
+
+// ===== INVITACIONES MULTIEMPRESA (solo super admin) =====
+function abrirInvitar(){
+  const cont=document.getElementById('inv-empresas');
+  cont.innerHTML=(todosClientes||[]).map(c=>'<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" class="inv-emp-chk" value="'+c.id+'"> '+c.nombre+'</label>').join('')||'<div style="font-size:12px;color:var(--muted)">No hay empresas.</div>';
+  document.getElementById('inv-result').classList.add('hidden');
+  document.getElementById('inv-error').classList.add('hidden');
+  document.getElementById('inv-email-lock').value='';
+  showModal('modal-invitar');
+}
+
+async function generarInvitacion(){
+  const err=document.getElementById('inv-error');
+  err.classList.add('hidden');
+  const ids=Array.from(document.querySelectorAll('.inv-emp-chk:checked')).map(c=>c.value);
+  if(!ids.length){err.textContent='Marca al menos una empresa.';err.classList.remove('hidden');return;}
+  const rol=document.getElementById('inv-rol').value||'admin';
+  const horas=parseInt(document.getElementById('inv-exp').value)||72;
+  const emailLock=(document.getElementById('inv-email-lock').value||'').trim().toLowerCase()||null;
+  const token=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():('t'+Date.now()+Math.random().toString(36).slice(2));
+  const expira=new Date(Date.now()+horas*3600*1000).toISOString();
+  const btn=document.getElementById('inv-gen-btn');btn.disabled=true;
+  try{
+    const {error}=await sb.from('invitaciones_usuario').insert({token,cliente_ids:ids,email:emailLock,rol,expira,usado:false});
+    if(error)throw error;
+    const link=window.location.origin+'/invitacion.html?token='+token;
+    document.getElementById('inv-link').value=link;
+    document.getElementById('inv-result').classList.remove('hidden');
+  }catch(e){
+    err.textContent='No se pudo generar: '+(e.message||e);err.classList.remove('hidden');
+  }finally{btn.disabled=false;}
+}
+
+function copiarInvLink(){
+  const i=document.getElementById('inv-link');if(!i)return;
+  i.select();i.setSelectionRange(0,99999);
+  const done=()=>{const b=document.querySelector('#inv-result button');if(b){const t=b.textContent;b.textContent='✓ Copiado';setTimeout(()=>b.textContent=t,1500);}};
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(i.value).then(done).catch(()=>{try{document.execCommand('copy');done();}catch(e){}});}
+  else{try{document.execCommand('copy');done();}catch(e){}}
+}
 
 async function renderSAClientes(){
   const sec=document.getElementById('sa-clientes-section');
