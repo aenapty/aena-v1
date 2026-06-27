@@ -5599,9 +5599,12 @@ async function guardarEdicionCliente(){
   if(!nombre){msg.textContent='El nombre es obligatorio.';msg.style.background='#FEF2F2';msg.style.color='#991B1B';msg.style.border='1px solid #FECACA';msg.classList.remove('hidden');return;}
   const {error}=await sb.from('clientes').update({nombre,ruc:ruc||null,dv:dv||null}).eq('id',id);
   if(error){msg.textContent='Error: '+error.message;msg.style.background='#FEF2F2';msg.style.color='#991B1B';msg.style.border='1px solid #FECACA';msg.classList.remove('hidden');return;}
-  // Actualizar módulos
+  // Actualizar módulos — SOLO los que tienen casilla presente en el modal.
+  // (Si una casilla no existe, NO se toca ese módulo, para no apagarlo por error.)
   for(const m of MODULOS_DISPONIBLES){
-    const activo=document.getElementById('ec2-mod-'+m.key)?.checked||false;
+    const cb=document.getElementById('ec2-mod-'+m.key);
+    if(!cb) continue;
+    const activo=cb.checked;
     const {data:existing}=await sb.from('cliente_modulos').select('id').eq('cliente_id',id).eq('modulo',m.key).single();
     if(existing){await sb.from('cliente_modulos').update({activo}).eq('id',existing.id);}
     else if(activo){await sb.from('cliente_modulos').insert({cliente_id:id,modulo:m.key,activo:true});}
@@ -6069,6 +6072,9 @@ init();
         </label>
         <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
           <input type="checkbox" id="ec2-mod-rrhh" style="width:16px;height:16px;accent-color:var(--blue)"> AENA Workforce — RRHH
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+          <input type="checkbox" id="ec2-mod-contable" style="width:16px;height:16px;accent-color:var(--blue)"> AENA Contable
         </label>
       </div>
     </div>
