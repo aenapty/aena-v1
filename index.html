@@ -1684,9 +1684,27 @@ async function loadUser(authUser){
       clienteActivo=todosClientes[0];
       modulos=[{modulo:'itbms'},{modulo:'isr'},{modulo:'rrhh'}];
     } else {
-      const {data:c}=await sb.from('clientes').select('*').eq('id',u.cliente_id).single();
-      clienteActivo=c;
-      const {data:mods}=await sb.from('cliente_modulos').select('*').eq('cliente_id',u.cliente_id).eq('activo',true);
+      // Multiempresa: lee las empresas asignadas al usuario en usuario_clientes.
+      // Si no hay tabla/filas (esquema viejo), cae al cliente_id único (retrocompatible).
+      let clientesUsuario=[];
+      try{
+        const {data:uc}=await sb.from('usuario_clientes')
+          .select('clientes(*)').eq('usuario_id',u.id);
+        clientesUsuario=(uc||[]).map(r=>r.clientes).filter(Boolean);
+      }catch(e){clientesUsuario=[];}
+      if(clientesUsuario.length){
+        // Ordena por nombre para un selector estable
+        clientesUsuario.sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
+        todosClientes=clientesUsuario;
+        clienteActivo=todosClientes[0];
+      } else {
+        const {data:c}=await sb.from('clientes').select('*').eq('id',u.cliente_id).single();
+        todosClientes=c?[c]:[];
+        clienteActivo=c;
+      }
+      // Módulos del cliente activo (detectModulo los recalcula al cambiar de empresa)
+      const actId=clienteActivo?.id;
+      const {data:mods}=actId?await sb.from('cliente_modulos').select('*').eq('cliente_id',actId).eq('activo',true):{data:[]};
       modulos=mods||[];
     }
     await detectModulo();
@@ -1700,9 +1718,10 @@ async function detectModulo(){
   const id=clienteActivo.id;
   if(id==='33333333-3333-3333-3333-333333333333'){moduloActivo='rrhh';modulosCliente=['rrhh'];return;}
   if(id==='22222222-2222-2222-2222-222222222222'){moduloActivo='isr';modulosCliente=['isr'];return;}
-  // Determina los módulos activos del cliente ACTIVO (también para super_admin)
+  // Determina los módulos activos del cliente ACTIVO.
+  // Super admin y usuarios con varias empresas recalculan por empresa.
   let mods=modulos;
-  if(usuario?.rol==='super_admin'){
+  if(usuario?.rol==='super_admin' || todosClientes.length>1){
     try{const {data}=await sb.from('cliente_modulos').select('modulo').eq('cliente_id',id).eq('activo',true);mods=data||[];}catch(e){mods=[];}
   }
   modulosCliente=(mods||[]).map(m=>m.modulo);
@@ -2021,9 +2040,12 @@ function itbmsRes(mes){
 
 function renderDash(){
   const isSA=usuario.rol==='super_admin';
+  const multiEmpresa=isSA || todosClientes.length>1;
   const sel=document.getElementById('super-client-selector');
-  if(isSA){
+  if(multiEmpresa){
     sel.classList.remove('hidden');
+    const lbl=sel.querySelector('.client-selector-label');
+    if(lbl)lbl.textContent=isSA?'CLIENTE':'EMPRESA';
     document.getElementById('client-selector-btns').innerHTML=todosClientes.map(c=>'<button class="client-btn '+(c.id===clienteActivo?.id?'active':'')+'" data-id="'+c.id+'" onclick="cambiarCliente(\''+c.id+'\')">'+c.nombre+'</button>').join('');
   } else sel.classList.add('hidden');
 
