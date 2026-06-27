@@ -170,6 +170,7 @@ Diseño tipo "escritorio" para no bloquear el sistema al abrir formularios.
 - **Probar a fondo** el estado de ventanas por cliente (que el contenido de asiento/factura de ingreso restaure bien al volver).
 - Posible: hacer minimizables los diálogos chicos (cuenta/proveedor) si el usuario lo pide.
 - **Editar facturas de ingreso:** hoy solo hay alta. Falta flujo de edición y que **regenere su asiento** al editar (como ya hace la factura de compra). ✅ El asiento automático *al guardar* (alta) ya quedó hecho en sesión 3.
+- **Seguridad `clientes_public_read`:** cerrar la política que deja listar nombres de todas las empresas a cualquier sesión (sesión 4). Cambiar a que cada quien vea solo los nombres de sus empresas (super_admin todos).
 - Limpieza de SQL: unificar funciones RLS (`es_super_admin` vs `is_super_admin`).
 - Limpiar clientes de prueba sobrantes ("Cliente prueba - Contabilidad", demos) si ya no sirven.
 
@@ -214,3 +215,17 @@ Diseño tipo "escritorio" para no bloquear el sistema al abrir formularios.
   - `seed_plan_cuentas` actualizada: quita la 1105 del plan y marca la 2102 como `es_itbms=true` (clientes nuevos nacen bien).
 - **Resultado verificado:** 2102 `es_itbms=true, activo=true`; 1105 `es_itbms=false, activo=false`. Cliente afectado: `ab2450ae…` (único contable).
 - **Lógica final:** Compras → Debe 2102 (crédito fiscal); Ventas → Haber 2102; saldo neto 2102 = posición ante la DGI.
+
+### Sesión 4 — 2026-06-27
+**Multiempresa por usuario + onboarding por invitación (en `main`):**
+- **Modelo de acceso:** un usuario puede tener acceso a **varias empresas**. Tabla nueva **`usuario_clientes(usuario_id, cliente_id)`** = membresía. Función **`tiene_acceso_cliente(cliente_id)`** = `es_super_admin()` OR `cliente_id = get_cliente_id()` (caso viejo, retrocompatible) OR existe fila en `usuario_clientes`.
+- **RLS:** TODAS las políticas de tablas financieras/fiscales reescritas a `tiene_acceso_cliente(cliente_id)` (facturas, ingresos, proveedores, clasificaciones_gasto, cuentas_contables, asientos, asiento_lineas, facturas_ingreso, SELECT de cliente_modulos). **RRHH NO se tocó** (sigue con `get_cliente_id`/`get_my_cliente_id`). De paso se limpiaron políticas duplicadas de `proveedores`.
+- **Código (`index.html`):** `loadUser` lee `usuario_clientes` con fallback al `cliente_id` único; `detectModulo` recalcula módulos por empresa para usuarios con >1 empresa; selector de empresa visible para cualquier usuario con >1 empresa (label dinámico EMPRESA / CLIENTE).
+- **Onboarding por enlace (un solo uso):**
+  - Tabla **`invitaciones_usuario`** (token, cliente_ids uuid[], email opcional, rol, expira, usado…). RLS: solo super_admin la gestiona.
+  - UI super admin: botón **✉ Invitar usuario** (modal `modal-invitar`) → `abrirInvitar`/`generarInvitacion`/`copiarInvLink`. Marca empresas → genera `/invitacion.html?token=…`.
+  - **`invitacion.html`**: página del invitado (correo + contraseña).
+  - **`api/aceptar-invitacion.js`** (Service Role): GET previsualiza; POST crea login confirmado + perfil `usuarios` + membresías `usuario_clientes`, marca token usado. Rollback si algo falla.
+- **Caso de uso:** administradora de clínica con un solo login que alterna Clínica (ITBMS) ↔ Personal (ISR); su contador igual (acceso ver+registrar).
+- **Nota de seguridad pendiente:** `clientes` tiene política `clientes_public_read` (qual `true`) que deja listar **nombres** de todas las empresas a cualquier sesión (los datos sí están protegidos). Venía de antes; cerrar en sesión aparte.
+- **Crear cliente con el botón:** `api/create-client.js` exige `adminEmail` y crea un login admin atado a esa empresa. Para empresas que se onboardean por invitación, NO usar el correo real del invitado al crear la empresa (colisiona con la invitación).
