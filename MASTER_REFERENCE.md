@@ -26,7 +26,7 @@
 
 - **Frontend:** HTML + JavaScript vanilla (sin frameworks, sin build step)
 - **Backend:** Supabase JS SDK vía CDN
-- **Auth:** Supabase Auth — tabla `usuarios` keyed por `auth.uid()`, con `rol` (`super_admin`/`admin`) y `cliente_id`
+- **Auth:** Supabase Auth — tabla `usuarios` keyed por `auth.uid()`, con `rol` (`super_admin`/`admin`) y `cliente_id` (nullable). **Multiempresa:** un usuario `admin` puede acceder a varias empresas vía `usuario_clientes` (en ese caso `cliente_id` queda null y manda la membresía)
 - **Serverless:** Vercel Functions en `/api` (Node)
 - **Deploy:** Vercel — auto-deploy al hacer push a `main`
 - **PWA:** Sí — manifest dinámico con logo base64 en `index.html`
@@ -43,11 +43,13 @@
 
 ```
 aena-v1/
-├── index.html              # App principal (~5700+ líneas) — admin/usuario, todos los módulos
+├── index.html              # App principal (~6000+ líneas) — admin/usuario, todos los módulos
 ├── supervisor.html         # Panel de aprobación RRHH (vía token único)
 ├── solicitud.html          # Formulario que llena el colaborador (RRHH)
+├── invitacion.html         # Página del invitado: onboarding multiempresa por enlace (sesión 4)
 ├── api/
 │   ├── create-client.js    # Crea cliente en 1 paso (Auth user + cliente + módulos + plan)
+│   ├── aceptar-invitacion.js # Acepta invitación: crea login+perfil+membresías (service role) (sesión 4)
 │   └── send-email.js       # Envío de correos
 ├── netlify/functions/      # Legacy (no en uso activo)
 └── MASTER_REFERENCE.md     # Este archivo
@@ -69,6 +71,8 @@ aena-v1/
 | `solicitud_tokens` | Flujo de aprobación RRHH (token único por solicitud) |
 | `movimientos_rrhh` | Registro final: vacaciones, incapacidades, permisos |
 | `tipos_permiso_config`, `reposiciones_permiso`, `invitaciones` | Config y onboarding |
+| `usuario_clientes` | **(sesión 4)** Membresía multiempresa: `(usuario_id, cliente_id)`. Qué empresas puede ver un usuario no-super-admin |
+| `invitaciones_usuario` | **(sesión 4)** Invitación por enlace: `token, cliente_ids uuid[], email`(opcional)`, rol, expira, usado, usado_por, usado_at` |
 
 ### Tablas financieras / ITBMS / ISR
 | Tabla | Propósito |
@@ -99,27 +103,47 @@ Archivo SQL aplicado: `01_modulo_contable.sql` (se generó en outputs; el usuari
 
 ## 🔐 RLS (Row Level Security)
 
-Patrón general en casi todas las tablas:
+**Modelo multiempresa (sesión 4).** Función central:
 ```sql
-SELECT/UPDATE/DELETE: es_super_admin() OR cliente_id = get_cliente_id()
-INSERT: controlado por la app
+tiene_acceso_cliente(p_cliente_id uuid) =
+  es_super_admin()
+  OR p_cliente_id = get_cliente_id()          -- caso viejo (1 usuario = 1 empresa), retrocompatible
+  OR EXISTS (SELECT 1 FROM usuario_clientes WHERE usuario_id=auth.uid() AND cliente_id=p_cliente_id)
 ```
-Las tablas contables (`cuentas_contables`, `asientos`, `asiento_lineas`, `facturas_ingreso`) llevan el mismo patrón por `cliente_id`.
 
-> ⚠️ Inconsistencia histórica: conviven `es_super_admin()`/`get_cliente_id()` con
-> `is_super_admin()`/`get_my_cliente_id()`. Equivalentes; pendiente unificar.
+**Tablas financieras/fiscales** (facturas, ingresos, proveedores, clasificaciones_gasto, cuentas_contables, asientos, asiento_lineas, facturas_ingreso, SELECT de cliente_modulos) → todas usan `tiene_acceso_cliente(cliente_id)` para SELECT/INSERT/UPDATE/DELETE.
+
+**Tablas RRHH** (colaboradores, movimientos_rrhh, supervisores, solicitud_tokens, reposiciones_permiso, tipos_permiso_config) → **siguen con el patrón viejo** `es_super_admin() OR cliente_id = get_cliente_id()` (o sus gemelas `is_super_admin`/`get_my_cliente_id`). **No se tocaron.**
+
+**Helpers (4, dos pares equivalentes):** `es_super_admin()`=`is_super_admin()`; `get_cliente_id()`=`get_my_cliente_id()` (devuelven el `cliente_id` único del usuario). Pendiente unificar nombres algún día (no urgente).
+
+`usuario_clientes` y `invitaciones_usuario`: RLS solo super_admin las gestiona (`es_super_admin()`); `usuario_clientes` además deja al propio usuario leer sus filas. El endpoint `aceptar-invitacion.js` usa **Service Role** y escribe por encima de RLS.
+
+> ⚠️ **Pendiente de seguridad:** `clientes` tiene la política `clientes_public_read` (`USING true`) que deja **listar nombres** de todas las empresas a cualquier sesión (los datos financieros sí están protegidos uno por uno). Venía de antes. Cerrar en sesión aparte.
 
 ---
 
 ## 🧩 Módulos de la App
 
-`moduloActivo` global: `itbms` | `isr` | `rrhh` | `contable`. `detectModulo()` (async) resuelve los módulos del cliente desde `cliente_modulos`; para super_admin trae los reales. `switchModulo(m)` cambia sin cerrar sesión. UUIDs demo: `33333333…`=rrhh, `22222222…`=isr.
+`moduloActivo` global: `itbms` | `isr` | `rrhh` | `contable`. `detectModulo()` (async) resuelve los módulos del cliente desde `cliente_modulos`; para super_admin **y para usuarios con >1 empresa** trae los reales por empresa activa. `switchModulo(m)` cambia sin cerrar sesión. UUIDs demo hardcoded en detectModulo: `33333333…`=rrhh, `22222222…`=isr.
+
+**Multiempresa por usuario (sesión 4):** `loadUser` lee `usuario_clientes` para armar `todosClientes` (con fallback al `cliente_id` único si no hay membresías). El **selector de empresa** de arriba (mismo componente del super_admin) ahora se muestra para **cualquier usuario con >1 empresa** (label dinámico: "EMPRESA" para usuario normal, "CLIENTE" para super_admin). `cambiarCliente(id)` recarga todo el contexto + estado de ventanas.
 
 ### RRHH ✅
 Solicitud → token → colaborador llena (`solicitud.html`) → supervisor aprueba (`supervisor.html?token=`) → inserta en `movimientos_rrhh`. Tipos: `vacacion`, `incapacidad`, `permiso`.
 
 ### ITBMS / ISR ✅
-Facturas de compra (1 fila/línea), ingresos mensuales, análisis y reportes ITBMS. Clientes reales: **Arenas & Barletta** (RRHH), **Dra. M.C. Lemm** (ITBMS), **Administradora** (ISR personal). NO romper.
+Facturas de compra (1 fila/línea), ingresos mensuales, análisis y reportes ITBMS.
+
+**Clientes reales en producción (sesión 4):**
+| Nombre | ID | Uso |
+|---|---|---|
+| **Dra. Lemm** | `ab2450ae-cccf-4323-9f6d-6a68b3171d60` | Clínica — **módulo CONTABLE** (27 facturas compra, 27 asientos, 40 cuentas). Cliente principal. NO romper. |
+| Arenas & Barletta Corp S.A | `33333333-3333-3333-3333-333333333333` | RRHH (hardcoded en detectModulo) |
+| Administradora (personal) | `22222222-2222-2222-2222-222222222222` | ISR (hardcoded en detectModulo) |
+| Licda. Kiria Plaza | `dbdd0bef-7230-417d-82f3-78f2acca45db` | — |
+| Cliente prueba - Contabilidad | `1dadbd23-42c2-4ceb-ba8d-2ace534d15f6` | **PRUEBA** — candidata a archivar |
+| Dra. M.C. Lemm - Pruba 2025 no usar | `11111111-1111-1111-1111-111111111111` | **PRUEBA** — no usar |
 
 ### CONTABLE ✅ (construido en sesión 2)
 Es un **módulo dentro de `index.html`** (no archivo aparte), aditivo y gateado por `moduloActivo==='contable'`. Incluye:
@@ -159,20 +183,21 @@ Diseño tipo "escritorio" para no bloquear el sistema al abrir formularios.
 
 ## 👤 Super Admin — Herramientas
 
-- **Crear cliente en 1 paso:** `api/create-client.js` (usa `SUPABASE_SERVICE_ROLE_KEY` **legacy** como env var en Vercel; verifica que el llamante sea super_admin con la publishable key en `/auth/v1/user`). Frontend `guardarNuevoCliente()` con checkbox "AENA Contable" (siembra plan) y contraseña temporal opcional.
-- **Gestión de clientes** (Configuración): "Ver detalles" (`verDetalleCliente` → usuarios/correos/rol), "Administrar" (`administrarCliente`), "Editar".
+- **Crear cliente en 1 paso:** `api/create-client.js` (usa `SUPABASE_SERVICE_ROLE_KEY` **legacy** como env var en Vercel; verifica que el llamante sea super_admin con la publishable key en `/auth/v1/user`). Frontend `guardarNuevoCliente()` con checkbox "AENA Contable" (siembra plan) y contraseña temporal opcional. **OJO:** exige `adminEmail` y crea un login admin atado a esa empresa → para empresas que se onboardean por invitación, NO usar el correo real del invitado al crear la empresa (colisiona con la invitación; usar placeholder).
+- **Invitar usuario multiempresa (sesión 4):** botón **✉ Invitar usuario** en 👑 Gestión de clientes. `abrirInvitar()` lista las empresas como checkboxes; `generarInvitacion()` inserta en `invitaciones_usuario` y arma el enlace `/invitacion.html?token=…` (un solo uso, con vencimiento, correo opcional para reservarlo). El invitado abre el enlace, pone correo+contraseña → `api/aceptar-invitacion.js` (service role) crea login confirmado + perfil `usuarios` (rol del token, sin `cliente_id`) + filas en `usuario_clientes`, y marca el token usado. `copiarInvLink()` copia el enlace.
+- **Gestión de clientes** (Configuración): "Ver detalles" (`verDetalleCliente` → usuarios/correos/rol), "Administrar" (`administrarCliente`), "Editar" (`abrirEditarCliente`/`guardarEdicionCliente`).
+- **⚠️ CRÍTICO — Editar cliente y módulos:** `guardarEdicionCliente` recorre `MODULOS_DISPONIBLES` (itbms, isr, rrhh, **contable**) y escribe `cliente_modulos` según las casillas del modal `modal-editar-cliente`. **Toda casilla de módulo debe existir en ese modal** (`ec2-mod-<key>`). En sesión 4 hubo un bug: faltaba la casilla `ec2-mod-contable`, así que al editar/renombrar a Dra. Lemm se leía como `false` y **desactivaba el módulo Contable** (los datos seguían intactos, pero la app dejaba de cargar la contabilidad). **Arreglado:** se agregó la casilla Contable + la función ahora **omite** (no toca) cualquier módulo cuya casilla no exista. Si en el futuro se agrega un módulo nuevo a `MODULOS_DISPONIBLES`, **hay que agregar también su casilla al modal**.
 - **Recuperar acceso:** el correo del super_admin se ve en Supabase → Authentication → Users (o tabla `usuarios`, `rol=super_admin`). La contraseña **no se puede recuperar** (encriptada); se restablece desde "¿Olvidaste tu contraseña?" en el login o desde Supabase Auth.
 
 ---
 
 ## 🔜 Trabajo Pendiente
 
-- **Probar a fondo** el estado de ventanas por cliente (que el contenido de asiento/factura de ingreso restaure bien al volver).
-- Posible: hacer minimizables los diálogos chicos (cuenta/proveedor) si el usuario lo pide.
-- **Editar facturas de ingreso:** hoy solo hay alta. Falta flujo de edición y que **regenere su asiento** al editar (como ya hace la factura de compra). ✅ El asiento automático *al guardar* (alta) ya quedó hecho en sesión 3.
-- **Seguridad `clientes_public_read`:** cerrar la política que deja listar nombres de todas las empresas a cualquier sesión (sesión 4). Cambiar a que cada quien vea solo los nombres de sus empresas (super_admin todos).
-- Limpieza de SQL: unificar funciones RLS (`es_super_admin` vs `is_super_admin`).
-- Limpiar clientes de prueba sobrantes ("Cliente prueba - Contabilidad", demos) si ya no sirven.
+- **Editar facturas de ingreso:** hoy solo hay alta. Falta flujo de edición y que **regenere su asiento** al editar (como ya hace la factura de compra).
+- **Seguridad `clientes_public_read`:** cerrar la política que deja listar nombres de todas las empresas a cualquier sesión. Cambiar a que cada quien vea solo los nombres de sus empresas (super_admin todos).
+- **Archivar/ocultar clientes de prueba** del selector ("Cliente prueba - Contabilidad", "Dra. M.C. Lemm - Pruba 2025 no usar"). Idea: columna `activo`/`archivado` en `clientes` + filtrar en `loadUser`/`renderSAClientes`. (Pendiente de implementar; el usuario lo pidió.)
+- Limpieza de SQL: unificar funciones RLS (`es_super_admin` vs `is_super_admin`, `get_cliente_id` vs `get_my_cliente_id`).
+- Probar a fondo el estado de ventanas por cliente (que asiento/factura de ingreso restaure bien al volver).
 
 ---
 
@@ -229,3 +254,11 @@ Diseño tipo "escritorio" para no bloquear el sistema al abrir formularios.
 - **Caso de uso:** administradora de clínica con un solo login que alterna Clínica (ITBMS) ↔ Personal (ISR); su contador igual (acceso ver+registrar).
 - **Nota de seguridad pendiente:** `clientes` tiene política `clientes_public_read` (qual `true`) que deja listar **nombres** de todas las empresas a cualquier sesión (los datos sí están protegidos). Venía de antes; cerrar en sesión aparte.
 - **Crear cliente con el botón:** `api/create-client.js` exige `adminEmail` y crea un login admin atado a esa empresa. Para empresas que se onboardean por invitación, NO usar el correo real del invitado al crear la empresa (colisiona con la invitación).
+
+### Sesión 5 — 2026-06-27 (continuación)
+**Bug del módulo Contable al editar cliente + endurecimiento:**
+- **Causa:** el modal `modal-editar-cliente` no tenía la casilla `ec2-mod-contable`. `guardarEdicionCliente` leía esa casilla inexistente como `false` y, al guardar (p. ej. al renombrar), **desactivaba el módulo Contable** del cliente. Le pasó a **Dra. Lemm**: la contabilidad "desapareció" de la app aunque los 27 registros seguían intactos en la base.
+- **Fix (en `main`):** (1) se agregó la casilla "AENA Contable" al modal; (2) `guardarEdicionCliente` ahora **solo modifica módulos cuya casilla existe** (`if(!cb) continue;`), nunca apaga por omisión.
+- **Recuperación de datos:** SQL para reactivar el módulo (`UPDATE cliente_modulos SET activo=true WHERE cliente_id='ab2450ae…' AND modulo='contable'`, con INSERT de respaldo si no existía la fila). Verificado: 27 facturas, 27 asientos, 69 líneas, 40 cuentas intactos.
+- **Lección:** al agregar un módulo a `MODULOS_DISPONIBLES`, **agregar también su casilla `ec2-mod-<key>`** al modal de editar cliente y a "nuevo cliente" (`nc-mod-<key>`).
+- **MASTER:** actualizado de forma integral (estructura, tablas multiempresa, RLS nueva, clientes reales con IDs, herramientas super admin, invitaciones).
