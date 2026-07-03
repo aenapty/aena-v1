@@ -2157,7 +2157,7 @@ function renderDash(){
   document.getElementById('dash-kpis').innerHTML=kpi('kpi-blue','Facturas registradas',facturas.length,'Año '+anioData)+kpi('kpi-purple','Compras gravables',fmt(tG),'ITBMS: '+fmt(tI))+(esI?kpi('kpi-lime','Ingresos gravables',fmt(tIG),'ITBMS cobrado: '+fmt(tII))+kpi(bal>=0?'kpi-green':'kpi-red','Balance ITBMS',fmt(Math.abs(bal)),bal>=0?'Crédito a favor':'A pagar DGI'):kpi('kpi-amber','Total gastos deducibles',fmt(tG),'Año '+anioData)+kpi('kpi-blue','Meses con registros',[...new Set(facturas.map(f=>f.mes))].length,'de 12 meses'));
   const modC=esI?[{icon:'📄',title:'Facturas de compra',sub:'Registro mensual',page:'facturas',cls:'mod-card-blue'},{icon:'📈',title:'Ingresos',sub:'Control mensual',page:'ingresos',cls:'mod-card-navy'},{icon:'⚖️',title:'Análisis ITBMS',sub:'Resultado mensual DGI',page:'itbms',cls:'mod-card-purple'},{icon:'📊',title:'Reporte anual',sub:'Todos los meses',page:'anual',cls:'mod-card-teal'}]:[{icon:'🧾',title:'Registro de gastos',sub:'Facturas personales',page:'facturas',cls:'mod-card-amber'},{icon:'📊',title:'Resumen ISR',sub:'Proyección y cuotas',page:'isr',cls:'mod-card-purple'},{icon:'📋',title:'Reporte anual',sub:'Todos los meses',page:'anual',cls:'mod-card-navy'}];
   document.getElementById('dash-mod-cards').innerHTML='<div class="mod-cards">'+modC.map(m=>'<div class="mod-card '+m.cls+'" onclick="goPage(\''+m.page+'\')"><div class="mod-card-shine"></div><span class="mod-card-icon">'+m.icon+'</span><div class="mod-card-title">'+m.title+'</div><div class="mod-card-sub">'+m.sub+'</div></div>').join('')+'</div>';
-  const grouped={};facturas.forEach(f=>{const k=f.clasificaciones_gasto?.nombre||'Sin clasificar';grouped[k]=(grouped[k]||0)+parseFloat(f.monto_gravable||0);});
+  const grouped={};facturas.forEach(f=>{const k=gastoDe(f);grouped[k]=(grouped[k]||0)+parseFloat(f.monto_gravable||0);});
   const ents=Object.entries(grouped).sort((a,b)=>b[1]-a[1]).slice(0,5);const mx=ents[0]?.[1]||1;
   document.getElementById('dash-resumen').innerHTML='<div class="card-header"><div class="card-title">Gastos por clasificación</div></div>'+(ents.length?ents.map(([k,v])=>'<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="font-weight:500">'+k+'</span><span style="font-weight:600;color:var(--blue)">'+fmt(v)+'</span></div><div class="prog-wrap"><div class="prog-bar" style="width:'+(v/mx*100).toFixed(0)+'%;background:var(--blue)"></div></div></div>').join(''):'<div style="font-size:12px;color:var(--muted);text-align:center;padding:20px">Sin datos registrados</div>');
   document.getElementById('dash-meses').innerHTML='<div class="card-header"><div class="card-title">Estado por mes</div></div><div class="mes-grid">'+MESES.slice(0,6).map((m,i)=>{const mes=i+1,hD=facturas.some(f=>f.mes===mes&&(f.fecha_exacta||'').startsWith(String(anioActivo)))||ingresos.some(x=>x.mes===mes&&Number(x.anio)===Number(anioActivo));if(!hD)return'<div class="mes-card nd"><div class="mes-nom">'+m.substring(0,3)+'</div><div class="mes-val" style="color:var(--muted)">—</div></div>';if(!esI){const t=facturas.filter(f=>f.mes===mes&&(f.fecha_exacta||'').startsWith(String(anioActivo))).reduce((a,f)=>a+parseFloat(f.monto_gravable||0),0);return'<div class="mes-card" onclick="drillMes('+mes+')" style="cursor:pointer"><div class="mes-nom">'+m.substring(0,3)+'</div><div class="mes-val" style="color:var(--blue)">'+fmt(t)+'</div></div>';}const r=itbmsRes(mes);return'<div class="mes-card '+(r>0?'dgi':r<0?'cred':'')+'" onclick="drillMes('+mes+')"><div class="mes-nom">'+m.substring(0,3)+'</div><div class="mes-val" style="color:'+(r>0?'var(--red)':r<0?'var(--green)':'var(--blue)')+'">'+fmt(Math.abs(r))+'</div></div>';}).join('')+'</div>';
@@ -2184,7 +2184,7 @@ function renderFacturas(){
     <td style="font-weight:500">${f.numero_factura||'—'}</td>
     <td>${f.proveedor||'—'}</td>
     <td style="color:var(--muted)">${f.detalle||f.concepto||'—'}</td>
-    <td>${esC?cuentaTxt(f):(f.clasificaciones_gasto?.nombre||'—')}</td>
+    <td>${esC?cuentaTxt(f):((gastoDe(f)==='Sin clasificar'?'—':gastoDe(f)))}</td>
     <td>${fmt(f.monto_gravable)}</td>
     <td>${fmt(f.monto_exento)}</td>
     <td style="color:#B45309;font-weight:600">${fmt(f.itbms_factura)}</td>
@@ -2225,7 +2225,7 @@ function renderIsr(){
   const mR=[...new Set(facturas.map(f=>f.mes))].length||1;
   const pA=tG*(12/mR);let isr=0;
   if(pA>11000) isr=pA<=100000?(pA-11000)*0.15:(89000*0.15+(pA-100000)*0.25);
-  const grouped={};facturas.forEach(f=>{const k=f.clasificaciones_gasto?.nombre||'Sin clasificar';grouped[k]=(grouped[k]||0)+parseFloat(f.monto_gravable||0);});
+  const grouped={};facturas.forEach(f=>{const k=gastoDe(f);grouped[k]=(grouped[k]||0)+parseFloat(f.monto_gravable||0);});
   const ents=Object.entries(grouped).sort((a,b)=>b[1]-a[1]);const mx=ents[0]?.[1]||1;
   document.getElementById('isr-content').innerHTML='<div class="three-col">'+kpi('kpi-blue','Total gastos registrados',fmt(tG),mR+' mes(es) registrados')+kpi('kpi-purple','Proyección anual',fmt(pA),'Basado en promedio actual')+kpi('kpi-amber','ISR estimado',fmt(isr),'3 cuotas de '+fmt(isr/3))+'</div><div class="two-col"><div class="card"><div class="card-header"><div class="card-title">Gastos por clasificación</div></div>'+(ents.length?ents.map(([k,v])=>'<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="font-weight:500">'+k+'</span><span style="font-weight:600;color:#B45309">'+fmt(v)+'</span></div><div class="prog-wrap"><div class="prog-bar" style="width:'+(v/mx*100).toFixed(0)+'%;background:#B45309"></div></div></div>').join(''):'<div style="font-size:12px;color:var(--muted);text-align:center;padding:20px">Sin datos</div>')+'</div><div class="card"><div class="card-title">Tramos ISR — persona natural</div><table class="dt"><tbody><tr><td style="color:var(--muted)">Hasta $11,000</td><td style="text-align:right">Exento</td></tr><tr><td style="color:var(--muted)">$11,001 — $100,000</td><td style="text-align:right;font-weight:600">15%</td></tr><tr><td style="color:var(--muted)">Más de $100,000</td><td style="text-align:right;font-weight:600">25%</td></tr></tbody></table><div class="alert alert-info" style="margin-top:14px;margin-bottom:0;font-size:11px">Estimación referencial. Confirme con su contador antes del vencimiento.</div></div></div>';
 }
@@ -2410,11 +2410,24 @@ function aplicarFiltrosConcepto(){
 }
 
 function limpiarFiltrosConcepto(){rptConcDesde='';rptConcHasta='';rptConcGasto='';renderRptConcepto();}
+function gastoDe(f){
+  if(moduloActivo==='contable'){
+    const c=cuentas.find(x=>x.id===f.cuenta_id);
+    return c?(c.numero_cuenta+' · '+c.nombre):'Sin clasificar';
+  }
+  return f.clasificaciones_gasto?.nombre||'Sin clasificar';
+}
 function nombresGastoDisponibles(){
-  const def=(clasificaciones||[]).filter(c=>c.modulo===moduloActivo).map(c=>c.nombre).filter(Boolean);
-  const usados=facturas.map(f=>f.clasificaciones_gasto?.nombre).filter(Boolean);
+  let def;
+  if(moduloActivo==='contable'){
+    def=cuentas.filter(c=>c.es_movimiento&&c.activo!==false&&(c.tipo==='gasto'||c.tipo==='costo')).map(c=>c.numero_cuenta+' · '+c.nombre);
+  } else {
+    def=(clasificaciones||[]).filter(c=>c.modulo===moduloActivo).map(c=>c.nombre);
+  }
+  def=def.filter(Boolean);
+  const usados=facturas.map(f=>gastoDe(f)).filter(n=>n&&n!=='Sin clasificar');
   const base=[...new Set([...def,...usados])].sort((a,b)=>a.localeCompare(b));
-  if(facturas.some(f=>!f.clasificaciones_gasto?.nombre)) base.push('Sin clasificar');
+  if(facturas.some(f=>gastoDe(f)==='Sin clasificar')) base.push('Sin clasificar');
   return base;
 }
 function renderRptConcepto(){
@@ -2432,11 +2445,11 @@ function renderRptConcepto(){
   let lista=[...facturas];
   if(rptConcDesde) lista=lista.filter(f=>(f.fecha_exacta||'')>=rptConcDesde);
   if(rptConcHasta) lista=lista.filter(f=>(f.fecha_exacta||'')<=rptConcHasta);
-  if(rptConcGasto) lista=lista.filter(f=>(f.clasificaciones_gasto?.nombre||'Sin clasificar')===rptConcGasto);
+  if(rptConcGasto) lista=lista.filter(f=>gastoDe(f)===rptConcGasto);
 
   const grp={};
   lista.forEach(f=>{
-    const k=(f.clasificaciones_gasto?.nombre||'Sin clasificar').toUpperCase();
+    const k=gastoDe(f).toUpperCase();
     if(!grp[k])grp[k]={grav:0,no_grav:0,itbms:0};
     grp[k].grav+=parseFloat(f.monto_gravable||0);
     grp[k].no_grav+=parseFloat(f.monto_exento||0);
@@ -2497,7 +2510,7 @@ function renderRptDetallado(mes,conc,prov){
     <button class="btn btn-outline btn-sm" onclick="limpiarFiltrosDetallado()">Limpiar</button>
   </div>`;
   let lista=[...facturas];
-  if(rptDetConc)lista=lista.filter(f=>(f.clasificaciones_gasto?.nombre||'Sin clasificar')===rptDetConc);
+  if(rptDetConc)lista=lista.filter(f=>gastoDe(f)===rptDetConc);
   if(rptDetProv)lista=lista.filter(f=>(f.proveedor||'')===rptDetProv);
   if(rptDetFechaDesde)lista=lista.filter(f=>(f.fecha_exacta||'')>=rptDetFechaDesde);
   if(rptDetFechaHasta)lista=lista.filter(f=>(f.fecha_exacta||'')<=rptDetFechaHasta);
@@ -2531,7 +2544,7 @@ function renderRptDetallado(mes,conc,prov){
       <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${f.fecha_exacta||f.fecha||MESES[(f.mes||1)-1].substring(0,3)}</td>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border);font-weight:500">${f.proveedor||'—'}</td>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border);color:var(--muted)">${f.numero_factura||'—'}</td>
-      <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${f.clasificaciones_gasto?.nombre||'—'}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${(gastoDe(f)==='Sin clasificar'?'—':gastoDe(f))}</td>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:right">${fmt(g)}</td>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:right">${fmt(n)}</td>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:right;color:#B45309;font-weight:600">${fmt(i)}</td>
@@ -3421,7 +3434,8 @@ function facturasDe(mes,anio){ return facturas.filter(f=>f.mes===mes&&(f.fecha_e
 function drillEditar(id){ hideModal('modal-drill'); abrirEdicionFactura(id); }
 function drillMes(mes){ drillFacturas(facturasDe(mes,anioActivo),'Facturas — '+MESES[mes-1]+' '+anioActivo,(clienteActivo?.nombre||'')); }
 function drillGasto(nombre,desde,hasta){
-  let l=facturas.filter(f=>(f.clasificaciones_gasto?.nombre||'Sin clasificar')===nombre);
+  const key=String(nombre).toUpperCase();
+  let l=facturas.filter(f=>gastoDe(f).toUpperCase()===key);
   if(desde)l=l.filter(f=>(f.fecha_exacta||'')>=desde);
   if(hasta)l=l.filter(f=>(f.fecha_exacta||'')<=hasta);
   const rango=desde||hasta?((desde||'inicio')+' → '+(hasta||'hoy')):'Todos los registros';
@@ -3441,7 +3455,7 @@ function drillFacturas(lista,titulo,subtitulo){
       <td style="padding:6px 8px;border-bottom:1px solid var(--border)">${f.fecha_exacta||MESES[(f.mes||1)-1]}</td>
       <td style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:500">${f.proveedor||'—'}</td>
       <td style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--muted)">${f.numero_factura||'—'}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid var(--border)">${f.clasificaciones_gasto?.nombre||'—'}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid var(--border)">${(gastoDe(f)==='Sin clasificar'?'—':gastoDe(f))}</td>
       <td style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:right">${fmt(g)}</td>
       <td style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:right">${fmt(n)}</td>
       <td style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:right;color:#B45309;font-weight:600">${fmt(it)}</td>
@@ -4645,16 +4659,16 @@ function excelDownload(wb,filename){
 // -- REPORTE DETALLADO (ISR/ITBMS) --
 function exportExcelDetallado(){
   let lista=[...facturas];
-  if(rptDetConc)lista=lista.filter(f=>(f.clasificaciones_gasto?.nombre||'Sin clasificar')===rptDetConc);
+  if(rptDetConc)lista=lista.filter(f=>gastoDe(f)===rptDetConc);
   if(rptDetProv)lista=lista.filter(f=>(f.proveedor||'')===rptDetProv);
   if(rptDetFechaDesde)lista=lista.filter(f=>(f.fecha_exacta||'')>=rptDetFechaDesde);
   if(rptDetFechaHasta)lista=lista.filter(f=>(f.fecha_exacta||'')<=rptDetFechaHasta);
 
-  const headers=['N°','FECHA','PROVEEDOR','RUC','DV','N° FACTURA','CONCEPTO/DETALLE','CLASIFICACIÓN','GRAVADO','NO GRAVADO','ITBMS','TOTAL','TIPO'];
+  const headers=['N°','FECHA','PROVEEDOR','RUC','DV','N° FACTURA','CONCEPTO/DETALLE','GASTO','GRAVADO','NO GRAVADO','ITBMS','TOTAL','TIPO'];
   const rows=lista.map((f,i)=>[
     i+1, f.fecha_exacta||'', f.proveedor||'', f.ruc_proveedor||'', f.dv||'',
     f.numero_factura||'', f.detalle||f.concepto||'',
-    f.clasificaciones_gasto?.nombre||'Sin clasificar',
+    gastoDe(f),
     parseFloat(f.monto_gravable||0), parseFloat(f.monto_exento||0),
     parseFloat(f.itbms_factura||0),
     parseFloat(f.monto_gravable||0)+parseFloat(f.monto_exento||0)+parseFloat(f.itbms_factura||0),
@@ -4769,10 +4783,10 @@ function exportExcelConcepto(){
   let lista=[...facturas];
   if(rptConcDesde)lista=lista.filter(f=>(f.fecha_exacta||'')>=rptConcDesde);
   if(rptConcHasta)lista=lista.filter(f=>(f.fecha_exacta||'')<=rptConcHasta);
-  if(rptConcGasto)lista=lista.filter(f=>(f.clasificaciones_gasto?.nombre||'Sin clasificar')===rptConcGasto);
+  if(rptConcGasto)lista=lista.filter(f=>gastoDe(f)===rptConcGasto);
   const grp={};
   lista.forEach(f=>{
-    const k=(f.clasificaciones_gasto?.nombre||'Sin clasificar').toUpperCase();
+    const k=gastoDe(f).toUpperCase();
     if(!grp[k])grp[k]={grav:0,no_grav:0,itbms:0};
     grp[k].grav+=parseFloat(f.monto_gravable||0);
     grp[k].no_grav+=parseFloat(f.monto_exento||0);
