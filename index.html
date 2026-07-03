@@ -2410,10 +2410,17 @@ function aplicarFiltrosConcepto(){
 }
 
 function limpiarFiltrosConcepto(){rptConcDesde='';rptConcHasta='';rptConcGasto='';renderRptConcepto();}
+function nombresGastoDisponibles(){
+  const def=(clasificaciones||[]).filter(c=>c.modulo===moduloActivo).map(c=>c.nombre).filter(Boolean);
+  const usados=facturas.map(f=>f.clasificaciones_gasto?.nombre).filter(Boolean);
+  const base=[...new Set([...def,...usados])].sort((a,b)=>a.localeCompare(b));
+  if(facturas.some(f=>!f.clasificaciones_gasto?.nombre)) base.push('Sin clasificar');
+  return base;
+}
 function renderRptConcepto(){
   const esISR=moduloActivo==='isr';
   document.getElementById('rpt-conc-titulo').textContent=esISR?'Reporte por gasto — ISR':'Reporte por gasto';
-  const gastoOpts='<option value="">Todos los gastos</option>'+[...new Set(facturas.map(f=>f.clasificaciones_gasto?.nombre||'Sin clasificar'))].sort().map(c=>`<option value="${c}" ${rptConcGasto===c?'selected':''}>${c}</option>`).join('');
+  const gastoOpts='<option value="">Todos los gastos</option>'+nombresGastoDisponibles().map(c=>`<option value="${c}" ${rptConcGasto===c?'selected':''}>${c}</option>`).join('');
   document.getElementById('rpt-conc-filtro').innerHTML=`<div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 14px;display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap">
     <div><label class="fl">FECHA DESDE</label><input type="date" class="fi" id="rpt-conc-desde" style="min-width:140px" value="${rptConcDesde}"></div>
     <div><label class="fl">FECHA HASTA</label><input type="date" class="fi" id="rpt-conc-hasta" style="min-width:140px" value="${rptConcHasta}"></div>
@@ -2479,7 +2486,7 @@ function renderRptDetallado(mes,conc,prov){
   if(mes!==undefined)rptDetMes=mes;
   if(conc!==undefined)rptDetConc=conc;
   if(prov!==undefined)rptDetProv=prov;
-  const concOpts='<option value="">Todos</option>'+[...new Set(facturas.map(f=>f.clasificaciones_gasto?.nombre||'Sin clasificar'))].sort().map(c=>`<option value="${c}" ${rptDetConc===c?'selected':''}>${c}</option>`).join('');
+  const concOpts='<option value="">Todos</option>'+nombresGastoDisponibles().map(c=>`<option value="${c}" ${rptDetConc===c?'selected':''}>${c}</option>`).join('');
   const provOpts='<option value="">Todos</option>'+[...new Set(facturas.map(f=>f.proveedor||'').filter(Boolean))].sort().map(p=>`<option value="${p}" ${rptDetProv===p?'selected':''}>${p}</option>`).join('');
   document.getElementById('rpt-det-filtro').innerHTML=`<div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap">
     <div><label class="fl">FECHA DESDE</label><input type="date" class="fi" id="rpt-det-sel-desde" style="min-width:140px" value="${rptDetFechaDesde}"></div>
