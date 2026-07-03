@@ -135,6 +135,15 @@ Solicitud → token → colaborador llena (`solicitud.html`) → supervisor apru
 ### ITBMS / ISR ✅
 Facturas de compra (1 fila/línea), ingresos mensuales, análisis y reportes ITBMS.
 
+**Concepto de GASTO unificado (`gastoDe(f)`) — sesión 6.** El "gasto" de una factura depende del módulo:
+- **Contable:** es la **cuenta contable** de la factura (`cuentas.find(id===f.cuenta_id)` → `numero · nombre`). NO se usa `clasificaciones_gasto` en contable.
+- **ITBMS/ISR:** es `f.clasificaciones_gasto?.nombre`.
+`gastoDe(f)` (función global) devuelve esa etiqueta y se usa en TODO por igual: columna GASTO del detallado, agrupación del reporte por gasto, filtros, drill-down y exportes Excel. Sin cuenta/clasificación → `'Sin clasificar'` (se muestra `—` en columnas). El catálogo del desplegable lo arma `nombresGastoDisponibles()`: en contable las cuentas de gasto/costo (`tipo in ('gasto','costo') && es_movimiento && activo`), en ITBMS/ISR las `clasificaciones` del módulo; ambos + los ya usados en facturas, y se **auto-actualiza** al crear cuenta/clasificación.
+
+**Reportes (sesión 6):** el antiguo "Resumen por concepto" ahora es **"Reporte por gasto"** (con filtro por gasto). El "Reporte detallado" cambió su filtro/columna "concepto" por **"gasto"**. Todos los reportes anuales y de análisis están **escalados por `anioActivo`** (ver Integridad #9).
+
+**Ingresos mensuales:** el modal de alta tiene **selector de AÑO** (`fi-anio`, sesión 6) — antes guardaba con el año del sistema fijo. `abrirModalIngreso(mes,anio)` precarga valores existentes (sirve para editar un mes). La tabla de ingresos muestra columna AÑO.
+
 **Clientes reales en producción (sesión 4):**
 | Nombre | ID | Uso |
 |---|---|---|
@@ -165,6 +174,7 @@ Diseño tipo "escritorio" para no bloquear el sistema al abrir formularios.
 - **Pestañas de facturas (varias a la vez):** `facturaTabs[]`, modelo de snapshots (`snapshotFacturaForm`/`restoreFacturaForm`), `abrirTabFactura`/`activarFacturaTab`/`cerrarFacturaTab`/`renderFacturaTabs`. `abrirEdicionFactura(id)` es un wrapper → `abrirTabFactura(id)`; el cuerpo de edición es `cargarFacturaEnForm(id)`.
 - **Estado por cliente+módulo:** `winStore{}` keyed por `ctxKey(cid,mod)`. `capturarEstadoVentanas()` y `restaurarEstadoVentanas()` se llaman en `cambiarCliente` y `switchModulo`: al cambiar de cliente/módulo se guardan las ventanas del contexto y se muestran solo las del nuevo; al volver, reaparecen como estaban. Incluye snapshots de asiento (`snapshotAsientoForm`/`restoreAsientoForm`) y factura de ingreso (`snapshotFacIngForm`/`restoreFacIngForm`).
 - Diálogos chicos (`modal-cuenta`, `modal-proveedor`) quedan como pop-up rápido centrado (no acoplados), para usarse encima de un formulario (ej. "+ Agregar cuenta" desde la factura).
+- **Drill-down a facturas (sesión 6):** cualquier monto por mes/año/gasto abre la factura para editarla sin salir de la vista. Modal `modal-drill` + `drillFacturas(lista,titulo,sub)`; helpers `facturasDe(mes,anio)`, `drillMes(mes)`, `drillGasto(nombre,desde,hasta)` (case-insensitive), `drillEditar(id)`→`abrirEdicionFactura`. Cableado en: reporte anual ITBMS (celdas de compras→drillMes, celdas de ingresos→`abrirModalIngreso`), reporte anual de compras, Análisis ITBMS (lista "facturas del mes" + monto ITBMS compras), dashboard "Estado por mes", reporte por gasto (fila→drillGasto). Detallado y lista de facturas ya tenían doble-clic. Tras guardar una edición, se re-renderiza **la página activa** (`paginaActivaId()`), no siempre "facturas", para que la vista donde estabas se actualice sola.
 
 ---
 
@@ -178,6 +188,7 @@ Diseño tipo "escritorio" para no bloquear el sistema al abrir formularios.
 6. **UX de guardado:** al guardar (alta o edición) el formulario se limpia y la pestaña queda lista para el siguiente registro, con toast `✓ guardado` (`resetTabFacturaActual` + `flashGuardado`). Evita doble clic / duplicados.
 7. **Totales en vivo:** `updateTotalItbms()` recalcula subtotal/ITBMS/total al escribir en gravable, **exento** e ITBMS.
 8. **Lista de facturas** muestra columnas: FECHA, N° FACTURA, PROVEEDOR, CONCEPTO, CUENTA/CLASIF, GRAVABLE, **EXENTO**, ITBMS, **TOTAL**, TIPO + KPIs (Gravable/Exento/ITBMS/Total).
+9. **Reportes escalados por año (sesión 6):** `anioActivo` arranca en el **año actual** (`new Date().getFullYear()`, antes fijo 2025). `itbmsRes(mes,anio)` filtra por año (antes sumaba todos los años → la fila TOTAL mostraba montos con las filas de detalle en cero). Reporte anual ITBMS, anual de compras, Análisis ITBMS y "Estado por mes" del dashboard filtran por `anioActivo`. Comparación de año robusta (`Number(i.anio)===Number(anioActivo)`) por si viene como texto.
 
 ---
 
@@ -193,6 +204,8 @@ Diseño tipo "escritorio" para no bloquear el sistema al abrir formularios.
 
 ## 🔜 Trabajo Pendiente
 
+- **Facturas de Dra. Lemm sin cuenta contable:** muchas facturas de compra no tienen `cuenta_id` asignado → salen como `—`/"Sin clasificar" en la columna GASTO y no suman en el reporte por gasto. Se pueden clasificar abriendo cada factura (clic en la fila → elegir cuenta → guardar). Amilkar evaluó opciones ofrecidas (columna "gasto" en el importador CSV; o clasificador rápido por fila en el detallado) — **pendiente de decidir cuál construir**.
+- **Mejoras al módulo RRHH** para registro diario (interés declarado de Amilkar; aún sin empezar).
 - **Editar facturas de ingreso:** hoy solo hay alta. Falta flujo de edición y que **regenere su asiento** al editar (como ya hace la factura de compra).
 - **Seguridad `clientes_public_read`:** cerrar la política que deja listar nombres de todas las empresas a cualquier sesión. Cambiar a que cada quien vea solo los nombres de sus empresas (super_admin todos).
 - **Archivar/ocultar clientes de prueba** del selector ("Cliente prueba - Contabilidad", "Dra. M.C. Lemm - Pruba 2025 no usar"). Idea: columna `activo`/`archivado` en `clientes` + filtrar en `loadUser`/`renderSAClientes`. (Pendiente de implementar; el usuario lo pidió.)
@@ -262,3 +275,12 @@ Diseño tipo "escritorio" para no bloquear el sistema al abrir formularios.
 - **Recuperación de datos:** SQL para reactivar el módulo (`UPDATE cliente_modulos SET activo=true WHERE cliente_id='ab2450ae…' AND modulo='contable'`, con INSERT de respaldo si no existía la fila). Verificado: 27 facturas, 27 asientos, 69 líneas, 40 cuentas intactos.
 - **Lección:** al agregar un módulo a `MODULOS_DISPONIBLES`, **agregar también su casilla `ec2-mod-<key>`** al modal de editar cliente y a "nuevo cliente" (`nc-mod-<key>`).
 - **MASTER:** actualizado de forma integral (estructura, tablas multiempresa, RLS nueva, clientes reales con IDs, herramientas super admin, invitaciones).
+
+### Sesión 6 — 2026-07-03
+**Reportes por año + drill-down + gasto desde la cuenta contable (todo en `main`, en vivo). Solo `index.html`.**
+- **Bug reporte anual ITBMS:** las filas de detalle salían en $0.00 pero la fila TOTAL sí mostraba montos. Causa: `itbmsRes()` no filtraba por año (sumaba todos) mientras las filas de detalle sí. Además los datos de la Dra. Lemm estaban bajo **2026** y el reporte abría fijo en **2025**. Fix: `itbmsRes(mes,anio)` filtra por año; `anioActivo` arranca en el año actual; comparación de año robusta (`Number()`); Análisis ITBMS y dashboard escalados al año activo. También se corrigió el manifest (`start_url` absoluto) y el favicon 404 (SVG inline).
+- **Selector de año en ingresos:** el modal de alta de ingresos no tenía año (guardaba con el año del sistema fijo). Se agregó `fi-anio`; `abrirModalIngreso(mes,anio)` precarga valores para editar; la tabla muestra columna AÑO.
+- **Renombre de reportes:** "Resumen por concepto" → **"Reporte por gasto"** (con filtro por gasto); "Reporte detallado" cambió filtro/columna "concepto" → **"gasto"**. Excel de ambos actualizado.
+- **Drill-down:** cualquier monto por mes/año/gasto abre la factura para editarla sin salir de la vista (`modal-drill` + `drillFacturas`/`drillMes`/`drillGasto`/`facturasDe`). Al guardar edición se refresca la página activa (`paginaActivaId()`). Ver sección Ventanas.
+- **GASTO = cuenta contable (en módulo contable):** el filtro de gasto solo mostraba "Sin clasificar" y la columna GASTO salía "—" porque en contable la factura se clasifica por **`cuenta_id`** (cuenta contable), no por `clasificaciones_gasto`. Se creó `gastoDe(f)` (cuenta en contable, clasificación en ITBMS/ISR) y `nombresGastoDisponibles()` (catálogo del módulo, auto-actualizable), aplicados en columnas, agrupaciones, filtros, drill y Excel. `drillGasto` se hizo case-insensitive (el por-gasto agrupa en MAYÚSCULAS).
+- **Dato:** las facturas de compra de la Dra. Lemm que no tienen `cuenta_id` siguen mostrándose sin gasto; hay que asignarles cuenta (ver Trabajo Pendiente).
