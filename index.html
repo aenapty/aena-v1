@@ -567,13 +567,13 @@ table.dt th:first-child{padding-left:14px}
           </div>
           <div class="card" style="cursor:pointer;border:1.5px solid transparent;transition:border .15s" onmouseover="this.style.borderColor='var(--blue)'" onmouseout="this.style.borderColor='transparent'" onclick="goPage('rpt-concepto')">
             <div style="font-size:24px;margin-bottom:8px">📋</div>
-            <div style="font-weight:600;font-size:13px;font-family:'Syne',sans-serif;margin-bottom:4px">Resumen por concepto</div>
-            <div style="font-size:11px;color:var(--muted)">Agrupado por clasificación</div>
+            <div style="font-weight:600;font-size:13px;font-family:'Syne',sans-serif;margin-bottom:4px">Reporte por gasto</div>
+            <div style="font-size:11px;color:var(--muted)">Agrupado y filtrable por gasto</div>
           </div>
           <div class="card" style="cursor:pointer;border:1.5px solid transparent;transition:border .15s" onmouseover="this.style.borderColor='var(--blue)'" onmouseout="this.style.borderColor='transparent'" onclick="goPage('rpt-detallado')">
             <div style="font-size:24px;margin-bottom:8px">🔍</div>
             <div style="font-weight:600;font-size:13px;font-family:'Syne',sans-serif;margin-bottom:4px">Reporte detallado</div>
-            <div style="font-size:11px;color:var(--muted)">Filtrable por fecha, concepto y proveedor</div>
+            <div style="font-size:11px;color:var(--muted)">Filtrable por fecha, gasto y proveedor</div>
           </div>
         </div>
       </div>
@@ -594,7 +594,7 @@ table.dt th:first-child{padding-left:14px}
       <!-- RPT CONCEPTO -->
       <div class="page" id="page-rpt-concepto">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-          <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:600" id="rpt-conc-titulo">Resumen por concepto</div>
+          <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:600" id="rpt-conc-titulo">Reporte por gasto</div>
           <div style="display:flex;gap:8px">
             <button class="btn-accion btn-accion-back" onclick="goPage('reportes')">← Reportes</button>
             <button class="btn-accion btn-accion-excel" onclick="exportExcelConcepto()">⬇ Excel</button>
@@ -1631,6 +1631,16 @@ table.dt th:first-child{padding-left:14px}
     </div>
   </div>
 </div>
+<div class="modal-overlay hidden" id="modal-drill">
+  <div class="modal" style="max-width:920px">
+    <div class="modal-title" id="drill-titulo">Facturas</div>
+    <div style="font-size:11px;color:var(--muted);margin:-6px 0 12px" id="drill-sub"></div>
+    <div id="drill-contenido"></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-outline" onclick="hideModal('modal-drill')">Cerrar</button>
+    </div>
+  </div>
+</div>
 <div class="modal-overlay hidden" id="modal-buscar-factura">
   <div class="modal" style="max-width:860px">
     <div class="modal-title">Buscar factura por número</div>
@@ -2150,7 +2160,7 @@ function renderDash(){
   const grouped={};facturas.forEach(f=>{const k=f.clasificaciones_gasto?.nombre||'Sin clasificar';grouped[k]=(grouped[k]||0)+parseFloat(f.monto_gravable||0);});
   const ents=Object.entries(grouped).sort((a,b)=>b[1]-a[1]).slice(0,5);const mx=ents[0]?.[1]||1;
   document.getElementById('dash-resumen').innerHTML='<div class="card-header"><div class="card-title">Gastos por clasificación</div></div>'+(ents.length?ents.map(([k,v])=>'<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="font-weight:500">'+k+'</span><span style="font-weight:600;color:var(--blue)">'+fmt(v)+'</span></div><div class="prog-wrap"><div class="prog-bar" style="width:'+(v/mx*100).toFixed(0)+'%;background:var(--blue)"></div></div></div>').join(''):'<div style="font-size:12px;color:var(--muted);text-align:center;padding:20px">Sin datos registrados</div>');
-  document.getElementById('dash-meses').innerHTML='<div class="card-header"><div class="card-title">Estado por mes</div></div><div class="mes-grid">'+MESES.slice(0,6).map((m,i)=>{const mes=i+1,hD=facturas.some(f=>f.mes===mes&&(f.fecha_exacta||'').startsWith(String(anioActivo)))||ingresos.some(x=>x.mes===mes&&Number(x.anio)===Number(anioActivo));if(!hD)return'<div class="mes-card nd"><div class="mes-nom">'+m.substring(0,3)+'</div><div class="mes-val" style="color:var(--muted)">—</div></div>';if(!esI){const t=facturas.filter(f=>f.mes===mes&&(f.fecha_exacta||'').startsWith(String(anioActivo))).reduce((a,f)=>a+parseFloat(f.monto_gravable||0),0);return'<div class="mes-card"><div class="mes-nom">'+m.substring(0,3)+'</div><div class="mes-val" style="color:var(--blue)">'+fmt(t)+'</div></div>';}const r=itbmsRes(mes);return'<div class="mes-card '+(r>0?'dgi':r<0?'cred':'')+'" onclick="selMes='+mes+';goPage(\'itbms\')"><div class="mes-nom">'+m.substring(0,3)+'</div><div class="mes-val" style="color:'+(r>0?'var(--red)':r<0?'var(--green)':'var(--blue)')+'">'+fmt(Math.abs(r))+'</div></div>';}).join('')+'</div>';
+  document.getElementById('dash-meses').innerHTML='<div class="card-header"><div class="card-title">Estado por mes</div></div><div class="mes-grid">'+MESES.slice(0,6).map((m,i)=>{const mes=i+1,hD=facturas.some(f=>f.mes===mes&&(f.fecha_exacta||'').startsWith(String(anioActivo)))||ingresos.some(x=>x.mes===mes&&Number(x.anio)===Number(anioActivo));if(!hD)return'<div class="mes-card nd"><div class="mes-nom">'+m.substring(0,3)+'</div><div class="mes-val" style="color:var(--muted)">—</div></div>';if(!esI){const t=facturas.filter(f=>f.mes===mes&&(f.fecha_exacta||'').startsWith(String(anioActivo))).reduce((a,f)=>a+parseFloat(f.monto_gravable||0),0);return'<div class="mes-card" onclick="drillMes('+mes+')" style="cursor:pointer"><div class="mes-nom">'+m.substring(0,3)+'</div><div class="mes-val" style="color:var(--blue)">'+fmt(t)+'</div></div>';}const r=itbmsRes(mes);return'<div class="mes-card '+(r>0?'dgi':r<0?'cred':'')+'" onclick="drillMes('+mes+')"><div class="mes-nom">'+m.substring(0,3)+'</div><div class="mes-val" style="color:'+(r>0?'var(--red)':r<0?'var(--green)':'var(--blue)')+'">'+fmt(Math.abs(r))+'</div></div>';}).join('')+'</div>';
   document.getElementById('dash-table-title').textContent='Últimas facturas';
   document.getElementById('dash-thead').innerHTML='<th>MES</th><th>PROVEEDOR</th><th>CONCEPTO</th><th>GRAVABLE</th><th>'+(esI?'ITBMS':'IMPUESTO')+'</th><th>TIPO</th>';
   document.getElementById('dash-tbody').innerHTML=[...facturas].reverse().slice(0,5).map(f=>'<tr style="cursor:pointer" ondblclick="abrirEdicionFactura(\''+f.id+'\')" title="Doble clic para editar"><td>'+MESES[(f.mes||1)-1].substring(0,3)+'</td><td>'+( f.proveedor||'—')+'</td><td>'+(f.concepto||'—')+'</td><td>'+fmt(f.monto_gravable)+'</td><td style="color:#B45309;font-weight:600">'+fmt(f.itbms_factura)+'</td><td><span class="tag tag-blue">'+(f.tipo||'Bien')+'</span></td></tr>').join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">Sin facturas registradas</td></tr>';
@@ -2207,7 +2217,7 @@ function renderItbms(){
   const col=res>0?'#991B1B':res<0?'#166534':'#1E3A8A';
   const lbl=res>0?'PAGAR A DGI':res<0?'CRÉDITO A FAVOR':'SIN MOVIMIENTO';
   const anioMes=facA.find(f=>f.mes===selMes)?.fecha_exacta?.substring(0,4)||ingA.find(i=>i.mes===selMes)?.anio||anioActivo;
-  document.getElementById('itbms-detalle').innerHTML='<div class="two-col"><div class="card"><div class="card-header"><div class="card-title">'+MESES[selMes-1]+' '+anioMes+'</div></div><table class="dt"><tbody><tr><td style="color:var(--muted)">ITBMS en ventas</td><td style="text-align:right;color:#166534;font-weight:600">'+fmt(ing.itbms_cobrado)+'</td></tr><tr><td style="color:var(--muted)">ITBMS en compras (crédito)</td><td style="text-align:right;color:#B45309;font-weight:600">-'+fmt(cI)+'</td></tr><tr><td style="color:var(--muted)">Retenciones</td><td style="text-align:right">-'+fmt(ing.retenciones)+'</td></tr><tr><td style="color:var(--muted)">Crédito mes anterior</td><td style="text-align:right;color:#534AB7">'+fmt(prev)+'</td></tr></tbody><tfoot><tr style="border-top:2px solid var(--border)"><td style="font-weight:600;padding-top:10px">RESULTADO</td><td style="text-align:right;font-weight:700;font-size:15px;color:'+col+';padding-top:10px">'+fmt(Math.abs(res))+'</td></tr></tfoot></table></div><div><div class="res-card '+rc+'"><div style="font-size:10px;font-weight:700;color:'+col+';letter-spacing:2px;margin-bottom:6px">'+lbl+'</div><div class="res-val" style="color:'+col+'">'+fmt(Math.abs(res))+'</div><div class="res-lbl" style="color:'+col+';opacity:0.7">'+MESES[selMes-1]+' '+anioMes+'</div></div><div class="card"><div class="card-title">Facturas del mes</div>'+facA.filter(f=>f.mes===selMes).map(f=>'<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:0.5px solid var(--border);font-size:12px"><span style="color:var(--muted)">'+( f.proveedor||'—')+' — '+(f.concepto||'')+'</span><span style="font-weight:600">'+fmt(f.itbms_factura)+'</span></div>').join('')+'</div></div></div>';
+  document.getElementById('itbms-detalle').innerHTML='<div class="two-col"><div class="card"><div class="card-header"><div class="card-title">'+MESES[selMes-1]+' '+anioMes+'</div></div><table class="dt"><tbody><tr><td style="color:var(--muted)">ITBMS en ventas</td><td style="text-align:right;color:#166534;font-weight:600">'+fmt(ing.itbms_cobrado)+'</td></tr><tr><td style="color:var(--muted)">ITBMS en compras (crédito)</td><td onclick="drillMes(selMes)" style="cursor:pointer;text-align:right;color:#B45309;font-weight:600">-'+fmt(cI)+'</td></tr><tr><td style="color:var(--muted)">Retenciones</td><td style="text-align:right">-'+fmt(ing.retenciones)+'</td></tr><tr><td style="color:var(--muted)">Crédito mes anterior</td><td style="text-align:right;color:#534AB7">'+fmt(prev)+'</td></tr></tbody><tfoot><tr style="border-top:2px solid var(--border)"><td style="font-weight:600;padding-top:10px">RESULTADO</td><td style="text-align:right;font-weight:700;font-size:15px;color:'+col+';padding-top:10px">'+fmt(Math.abs(res))+'</td></tr></tfoot></table></div><div><div class="res-card '+rc+'"><div style="font-size:10px;font-weight:700;color:'+col+';letter-spacing:2px;margin-bottom:6px">'+lbl+'</div><div class="res-val" style="color:'+col+'">'+fmt(Math.abs(res))+'</div><div class="res-lbl" style="color:'+col+';opacity:0.7">'+MESES[selMes-1]+' '+anioMes+'</div></div><div class="card"><div class="card-title">Facturas del mes</div>'+facA.filter(f=>f.mes===selMes).map(f=>'<div ondblclick="abrirEdicionFactura(\''+f.id+'\')" title="Doble clic para editar" style="cursor:pointer;display:flex;justify-content:space-between;padding:6px 0;border-bottom:0.5px solid var(--border);font-size:12px"><span style="color:var(--muted)">'+( f.proveedor||'—')+' — '+(f.concepto||'')+'</span><span style="font-weight:600">'+fmt(f.itbms_factura)+'</span></div>').join('')+'</div></div></div>';
 }
 
 function renderIsr(){
@@ -2249,7 +2259,7 @@ if(!facturas||!facturas.length){document.getElementById('reporte-anual-content')
       const mes=i+1;
       const v=facturasAnio.filter(f=>f.mes===mes).reduce((a,f)=>a+fila.fn(f),0);
       tot+=v;
-      return`<td style="padding:7px 6px;border-bottom:1px solid var(--border);text-align:right">${fmt(v)}</td>`;
+      return`<td onclick="drillMes(${mes})" style="cursor:pointer;padding:7px 6px;border-bottom:1px solid var(--border);text-align:right">${fmt(v)}</td>`;
     }).join('');
     html+=`<tr style="${fi%2===0?'background:#FAFBFF':'background:#fff'}">
       <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${fila.lbl}</td>
@@ -2262,7 +2272,7 @@ if(!facturas||!facturas.length){document.getElementById('reporte-anual-content')
   const subtotalCeldas=MESES.map((m,i)=>{
     const mes=i+1;
     const v=facturasAnio.filter(f=>f.mes===mes).reduce((a,f)=>a+parseFloat(f.monto_gravable||0)+parseFloat(f.monto_exento||0),0);
-    return`<td style="padding:7px 6px;border-bottom:1px solid var(--border);text-align:right;font-weight:600">${fmt(v)}</td>`;
+    return`<td onclick="drillMes(${mes})" style="cursor:pointer;padding:7px 6px;border-bottom:1px solid var(--border);text-align:right;font-weight:600">${fmt(v)}</td>`;
   }).join('');
   const subtotal=facturasAnio.reduce((a,f)=>a+parseFloat(f.monto_gravable||0)+parseFloat(f.monto_exento||0),0);
   html+=`<tr style="background:#EEF2FF">
@@ -2275,7 +2285,7 @@ if(!facturas||!facturas.length){document.getElementById('reporte-anual-content')
   const itbmsCeldas=MESES.map((m,i)=>{
     const mes=i+1;
     const v=facturasAnio.filter(f=>f.mes===mes).reduce((a,f)=>a+parseFloat(f.itbms_factura||0),0);
-    return`<td style="padding:7px 6px;border-bottom:1px solid var(--border);text-align:right;font-weight:600;color:#B45309">${fmt(v)}</td>`;
+    return`<td onclick="drillMes(${mes})" style="cursor:pointer;padding:7px 6px;border-bottom:1px solid var(--border);text-align:right;font-weight:600;color:#B45309">${fmt(v)}</td>`;
   }).join('');
   const totalItbms=facturasAnio.reduce((a,f)=>a+parseFloat(f.itbms_factura||0),0);
   html+=`<tr style="background:#fff">
@@ -2288,7 +2298,7 @@ if(!facturas||!facturas.length){document.getElementById('reporte-anual-content')
   let granTotales=MESES.map((m,i)=>{
     const mes=i+1;
     const v=facturasAnio.filter(f=>f.mes===mes).reduce((a,f)=>a+parseFloat(f.monto_gravable||0)+parseFloat(f.monto_exento||0)+parseFloat(f.itbms_factura||0),0);
-    return`<td style="padding:8px 6px;text-align:right;color:#fff;font-weight:700">${fmt(v)}</td>`;
+    return`<td onclick="drillMes(${mes})" style="cursor:pointer;padding:8px 6px;text-align:right;color:#fff;font-weight:700">${fmt(v)}</td>`;
   }).join('');
   const granTotal=facturasAnio.reduce((a,f)=>a+parseFloat(f.monto_gravable||0)+parseFloat(f.monto_exento||0)+parseFloat(f.itbms_factura||0),0);
   html+=`<tr style="background:var(--navy)">
@@ -2319,18 +2329,18 @@ function renderRptItbms(){
     </tr></thead><tbody>`;
 
   const filas=[
-    {lbl:'Ingresos Gravados',fn:(m)=>parseFloat(ingresosAnio.find(i=>i.mes===m)?.gravable||0)},
-    {lbl:'Ingresos No Gravados',fn:(m)=>parseFloat(ingresosAnio.find(i=>i.mes===m)?.exento||0)},
-    {lbl:'ITBMS Ingresos',fn:(m)=>parseFloat(ingresosAnio.find(i=>i.mes===m)?.itbms_cobrado||0),bold:true,color:'#166534'},
-    {lbl:'Compras Gravadas',fn:(m)=>facturasAnio.filter(f=>f.mes===m).reduce((a,f)=>a+parseFloat(f.monto_gravable||0),0)},
-    {lbl:'Compras No Gravadas',fn:(m)=>facturasAnio.filter(f=>f.mes===m).reduce((a,f)=>a+parseFloat(f.monto_exento||0),0)},
-    {lbl:'ITBMS Compras',fn:(m)=>facturasAnio.filter(f=>f.mes===m).reduce((a,f)=>a+parseFloat(f.itbms_factura||0),0),bold:true,color:'#B45309'},
-    {lbl:'Retenciones',fn:(m)=>parseFloat(ingresosAnio.find(i=>i.mes===m)?.retenciones||0)},
+    {lbl:'Ingresos Gravados',tipo:'ingreso',fn:(m)=>parseFloat(ingresosAnio.find(i=>i.mes===m)?.gravable||0)},
+    {lbl:'Ingresos No Gravados',tipo:'ingreso',fn:(m)=>parseFloat(ingresosAnio.find(i=>i.mes===m)?.exento||0)},
+    {lbl:'ITBMS Ingresos',tipo:'ingreso',fn:(m)=>parseFloat(ingresosAnio.find(i=>i.mes===m)?.itbms_cobrado||0),bold:true,color:'#166534'},
+    {lbl:'Compras Gravadas',tipo:'compra',fn:(m)=>facturasAnio.filter(f=>f.mes===m).reduce((a,f)=>a+parseFloat(f.monto_gravable||0),0)},
+    {lbl:'Compras No Gravadas',tipo:'compra',fn:(m)=>facturasAnio.filter(f=>f.mes===m).reduce((a,f)=>a+parseFloat(f.monto_exento||0),0)},
+    {lbl:'ITBMS Compras',tipo:'compra',fn:(m)=>facturasAnio.filter(f=>f.mes===m).reduce((a,f)=>a+parseFloat(f.itbms_factura||0),0),bold:true,color:'#B45309'},
+    {lbl:'Retenciones',tipo:'ingreso',fn:(m)=>parseFloat(ingresosAnio.find(i=>i.mes===m)?.retenciones||0)},
   ];
 
   filas.forEach((fila,fi)=>{
     let tot=0;
-    const celdas=MESES.map((m,i)=>{const v=fila.fn(i+1);tot+=v;return`<td style="padding:7px 6px;border-bottom:1px solid var(--border);text-align:right;${fila.bold?'font-weight:600;color:'+(fila.color||'#1A2540'):''}">${fmt(v)}</td>`;}).join('');
+    const celdas=MESES.map((m,i)=>{const v=fila.fn(i+1);tot+=v;const onc=fila.tipo==='compra'?`onclick="drillMes(${i+1})"`:`onclick="abrirModalIngreso(${i+1},${anioActivo})"`;return`<td ${onc} style="cursor:pointer;padding:7px 6px;border-bottom:1px solid var(--border);text-align:right;${fila.bold?'font-weight:600;color:'+(fila.color||'#1A2540'):''}">${fmt(v)}</td>`;}).join('');
     html+=`<tr style="${fi%2===0?'background:#FAFBFF':'background:#fff'}"><td style="padding:7px 10px;border-bottom:1px solid var(--border);font-weight:${fila.bold?'600':'400'}">${fila.lbl}</td>${celdas}<td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:right;font-weight:600">${fmt(tot)}</td></tr>`;
   });
 
@@ -2341,7 +2351,7 @@ function renderRptItbms(){
   document.getElementById('rpt-itbms-content').innerHTML=html;
 }
 
-let rptConcDesde='',rptConcHasta='';
+let rptConcDesde='',rptConcHasta='',rptConcGasto='';
 let rptDetMes='todos',rptDetConc='',rptDetProv='',rptDetFechaDesde='',rptDetFechaHasta='';
 
 function setFiltroTipo(tipo,el){
@@ -2392,18 +2402,22 @@ function limpiarFiltrosDetallado(){
 function aplicarFiltrosConcepto(){
   const d=document.getElementById('rpt-conc-desde');
   const h=document.getElementById('rpt-conc-hasta');
+  const g=document.getElementById('rpt-conc-gasto');
   if(d) rptConcDesde=d.value;
   if(h) rptConcHasta=h.value;
+  if(g) rptConcGasto=g.value;
   renderRptConcepto();
 }
 
-function limpiarFiltrosConcepto(){rptConcDesde='';rptConcHasta='';renderRptConcepto();}
+function limpiarFiltrosConcepto(){rptConcDesde='';rptConcHasta='';rptConcGasto='';renderRptConcepto();}
 function renderRptConcepto(){
   const esISR=moduloActivo==='isr';
-  document.getElementById('rpt-conc-titulo').textContent=esISR?'Resumen por concepto — ISR':'Resumen por concepto';
+  document.getElementById('rpt-conc-titulo').textContent=esISR?'Reporte por gasto — ISR':'Reporte por gasto';
+  const gastoOpts='<option value="">Todos los gastos</option>'+[...new Set(facturas.map(f=>f.clasificaciones_gasto?.nombre||'Sin clasificar'))].sort().map(c=>`<option value="${c}" ${rptConcGasto===c?'selected':''}>${c}</option>`).join('');
   document.getElementById('rpt-conc-filtro').innerHTML=`<div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 14px;display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap">
     <div><label class="fl">FECHA DESDE</label><input type="date" class="fi" id="rpt-conc-desde" style="min-width:140px" value="${rptConcDesde}"></div>
     <div><label class="fl">FECHA HASTA</label><input type="date" class="fi" id="rpt-conc-hasta" style="min-width:140px" value="${rptConcHasta}"></div>
+    <div><label class="fl">GASTO</label><select class="fi" id="rpt-conc-gasto" style="min-width:180px">${gastoOpts}</select></div>
     <button class="btn btn-primary btn-sm" onclick="aplicarFiltrosConcepto()">Buscar</button>
     <button class="btn btn-outline btn-sm" onclick="limpiarFiltrosConcepto()">Limpiar</button>
   </div>`;
@@ -2411,6 +2425,7 @@ function renderRptConcepto(){
   let lista=[...facturas];
   if(rptConcDesde) lista=lista.filter(f=>(f.fecha_exacta||'')>=rptConcDesde);
   if(rptConcHasta) lista=lista.filter(f=>(f.fecha_exacta||'')<=rptConcHasta);
+  if(rptConcGasto) lista=lista.filter(f=>(f.clasificaciones_gasto?.nombre||'Sin clasificar')===rptConcGasto);
 
   const grp={};
   lista.forEach(f=>{
@@ -2426,7 +2441,7 @@ function renderRptConcepto(){
 
   const clienteNombre=clienteActivo?.nombre||'';
   const rango=rptConcDesde||rptConcHasta?((rptConcDesde||'inicio')+' → '+(rptConcHasta||'hoy')):'Todos los registros';
-  const titulo=esISR?`Resumen por concepto — ISR`:`Resumen por concepto`;
+  const titulo=esISR?`Reporte por gasto — ISR`:`Reporte por gasto`;
   let html=`<div style="background:var(--navy);color:#fff;border-radius:12px 12px 0 0;padding:16px 20px">
     <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px">${titulo}</div>
     <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px">${clienteNombre} · ${rango}</div>
@@ -2434,17 +2449,18 @@ function renderRptConcepto(){
   <div style="border:1px solid var(--border);border-top:none;border-radius:0 0 12px 12px;overflow:hidden">
   <div class="tbl-wrap"><table style="width:100%;border-collapse:collapse;font-size:11px">
     <thead><tr style="background:#112244">
-      <th style="text-align:left;color:#fff;padding:8px 10px;font-size:9px;font-weight:600">CONCEPTO</th>
+      <th style="text-align:left;color:#fff;padding:8px 10px;font-size:9px;font-weight:600">GASTO</th>
       ${esISR?`<th style="color:#fff;padding:8px 10px;font-size:9px;font-weight:600;text-align:right">SUBTOTAL</th>`:`<th style="color:#fff;padding:8px 10px;font-size:9px;font-weight:600;text-align:right">GRAVADO</th><th style="color:#fff;padding:8px 10px;font-size:9px;font-weight:600;text-align:right">NO GRAVADO</th><th style="color:#fff;padding:8px 10px;font-size:9px;font-weight:600;text-align:right">ITBMS</th>`}
       <th style="color:#fff;padding:8px 10px;font-size:9px;font-weight:600;text-align:right">TOTAL</th>
     </tr></thead><tbody>`;
 
   ents.forEach(([k,v],i)=>{
     const monto=v.grav+v.no_grav;
+    const drill=`onclick="drillGasto('${k.replace(/'/g,"\\'")}','${rptConcDesde}','${rptConcHasta}')" style="cursor:pointer;`;
     if(esISR){
-      html+=`<tr style="${i%2===0?'background:#FAFBFF':'background:#fff'}"><td style="padding:7px 10px;border-bottom:1px solid var(--border)">${k}</td><td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:right">${fmt(monto)}</td><td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:right;font-weight:600">${fmt(monto)}</td></tr>`;
+      html+=`<tr ${drill}${i%2===0?'background:#FAFBFF':'background:#fff'}"><td style="padding:7px 10px;border-bottom:1px solid var(--border)">${k}</td><td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:right">${fmt(monto)}</td><td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:right;font-weight:600">${fmt(monto)}</td></tr>`;
     } else {
-      html+=`<tr style="${i%2===0?'background:#FAFBFF':'background:#fff'}"><td style="padding:7px 10px;border-bottom:1px solid var(--border)">${k}</td><td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:right">${fmt(v.grav)}</td><td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:right">${fmt(v.no_grav)}</td><td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:right">${fmt(v.itbms)}</td><td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:right;font-weight:600">${fmt(v.grav+v.no_grav+v.itbms)}</td></tr>`;
+      html+=`<tr ${drill}${i%2===0?'background:#FAFBFF':'background:#fff'}"><td style="padding:7px 10px;border-bottom:1px solid var(--border)">${k}</td><td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:right">${fmt(v.grav)}</td><td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:right">${fmt(v.no_grav)}</td><td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:right">${fmt(v.itbms)}</td><td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:right;font-weight:600">${fmt(v.grav+v.no_grav+v.itbms)}</td></tr>`;
     }
   });
 
@@ -2468,7 +2484,7 @@ function renderRptDetallado(mes,conc,prov){
   document.getElementById('rpt-det-filtro').innerHTML=`<div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap">
     <div><label class="fl">FECHA DESDE</label><input type="date" class="fi" id="rpt-det-sel-desde" style="min-width:140px" value="${rptDetFechaDesde}"></div>
     <div><label class="fl">FECHA HASTA</label><input type="date" class="fi" id="rpt-det-sel-hasta" style="min-width:140px" value="${rptDetFechaHasta}"></div>
-    <div><label class="fl">CONCEPTO</label><select class="fi" id="rpt-det-sel-conc" style="min-width:160px">${concOpts}</select></div>
+    <div><label class="fl">GASTO</label><select class="fi" id="rpt-det-sel-conc" style="min-width:160px">${concOpts}</select></div>
     <div><label class="fl">PROVEEDOR</label><select class="fi" id="rpt-det-sel-prov" style="min-width:160px">${provOpts}</select></div>
     <button class="btn btn-primary btn-sm" onclick="aplicarFiltrosDetallado()">Buscar</button>
     <button class="btn btn-outline btn-sm" onclick="limpiarFiltrosDetallado()">Limpiar</button>
@@ -2491,7 +2507,7 @@ function renderRptDetallado(mes,conc,prov){
       <th style="color:#fff;padding:8px 10px;font-size:9px;font-weight:600;text-align:left">FECHA</th>
       <th style="color:#fff;padding:8px 10px;font-size:9px;font-weight:600;text-align:left">PROVEEDOR</th>
       <th style="color:#fff;padding:8px 10px;font-size:9px;font-weight:600;text-align:left">FACTURA</th>
-      <th style="color:#fff;padding:8px 10px;font-size:9px;font-weight:600;text-align:left">CONCEPTO</th>
+      <th style="color:#fff;padding:8px 10px;font-size:9px;font-weight:600;text-align:left">GASTO</th>
       <th style="color:#fff;padding:8px 10px;font-size:9px;font-weight:600;text-align:right">GRAVADO</th>
       <th style="color:#fff;padding:8px 10px;font-size:9px;font-weight:600;text-align:right">NO GRAVADO</th>
       <th style="color:#fff;padding:8px 10px;font-size:9px;font-weight:600;text-align:right">ITBMS</th>
@@ -3393,6 +3409,57 @@ function buscarFacturaNF() {
 let facturaEditandoId=null;
 
 function abrirEdicionFactura(id){ abrirTabFactura(id); }
+function paginaActivaId(){ const el=document.querySelector('.page.active'); return el?el.id.replace('page-',''):'facturas'; }
+function facturasDe(mes,anio){ return facturas.filter(f=>f.mes===mes&&(f.fecha_exacta||'').startsWith(String(anio))); }
+function drillEditar(id){ hideModal('modal-drill'); abrirEdicionFactura(id); }
+function drillMes(mes){ drillFacturas(facturasDe(mes,anioActivo),'Facturas — '+MESES[mes-1]+' '+anioActivo,(clienteActivo?.nombre||'')); }
+function drillGasto(nombre,desde,hasta){
+  let l=facturas.filter(f=>(f.clasificaciones_gasto?.nombre||'Sin clasificar')===nombre);
+  if(desde)l=l.filter(f=>(f.fecha_exacta||'')>=desde);
+  if(hasta)l=l.filter(f=>(f.fecha_exacta||'')<=hasta);
+  const rango=desde||hasta?((desde||'inicio')+' → '+(hasta||'hoy')):'Todos los registros';
+  drillFacturas(l,'Gasto — '+nombre,(clienteActivo?.nombre||'')+' · '+rango);
+}
+function drillFacturas(lista,titulo,subtitulo){
+  document.getElementById('drill-titulo').textContent=titulo||'Facturas';
+  document.getElementById('drill-sub').textContent=subtitulo||'';
+  const cont=document.getElementById('drill-contenido');
+  if(!lista||!lista.length){ cont.innerHTML='<div style="text-align:center;color:var(--muted);padding:28px">No hay facturas registradas para este monto.</div>'; showModal('modal-drill'); return; }
+  const ordenada=[...lista].sort((a,b)=>(a.fecha_exacta||'').localeCompare(b.fecha_exacta||''));
+  let tG=0,tN=0,tI=0;
+  const rows=ordenada.map(f=>{
+    const g=parseFloat(f.monto_gravable||0),n=parseFloat(f.monto_exento||0),it=parseFloat(f.itbms_factura||0);
+    tG+=g;tN+=n;tI+=it;
+    return `<tr style="cursor:pointer" ondblclick="drillEditar('${f.id}')" title="Doble clic para editar">
+      <td style="padding:6px 8px;border-bottom:1px solid var(--border)">${f.fecha_exacta||MESES[(f.mes||1)-1]}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:500">${f.proveedor||'—'}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--muted)">${f.numero_factura||'—'}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid var(--border)">${f.clasificaciones_gasto?.nombre||'—'}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:right">${fmt(g)}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:right">${fmt(n)}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:right;color:#B45309;font-weight:600">${fmt(it)}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:right"><button class="btn btn-outline btn-sm" onclick="drillEditar('${f.id}')">✎ Editar</button></td>
+    </tr>`;
+  }).join('');
+  cont.innerHTML=`<div class="tbl-wrap"><table style="width:100%;border-collapse:collapse;font-size:11px">
+    <thead><tr style="background:#112244">
+      <th style="color:#fff;padding:7px 8px;font-size:9px;font-weight:600;text-align:left">FECHA</th>
+      <th style="color:#fff;padding:7px 8px;font-size:9px;font-weight:600;text-align:left">PROVEEDOR</th>
+      <th style="color:#fff;padding:7px 8px;font-size:9px;font-weight:600;text-align:left">FACTURA</th>
+      <th style="color:#fff;padding:7px 8px;font-size:9px;font-weight:600;text-align:left">GASTO</th>
+      <th style="color:#fff;padding:7px 8px;font-size:9px;font-weight:600;text-align:right">GRAVADO</th>
+      <th style="color:#fff;padding:7px 8px;font-size:9px;font-weight:600;text-align:right">NO GRAV.</th>
+      <th style="color:#fff;padding:7px 8px;font-size:9px;font-weight:600;text-align:right">ITBMS</th>
+      <th style="color:#fff;padding:7px 8px;font-size:9px;font-weight:600;text-align:right"></th>
+    </tr></thead><tbody>${rows}
+    <tr style="background:var(--navy)"><td colspan="4" style="padding:7px 8px;color:#fff;font-weight:700">TOTAL (${ordenada.length})</td>
+      <td style="padding:7px 8px;text-align:right;color:#fff;font-weight:700">${fmt(tG)}</td>
+      <td style="padding:7px 8px;text-align:right;color:#fff;font-weight:700">${fmt(tN)}</td>
+      <td style="padding:7px 8px;text-align:right;color:#fff;font-weight:700">${fmt(tI)}</td><td></td></tr>
+    </tbody></table></div>
+    <div style="font-size:10px;color:var(--muted);margin-top:8px">Doble clic en una fila o el botón "Editar" para abrir la factura y modificarla.</div>`;
+  showModal('modal-drill');
+}
 function cargarFacturaEnForm(id){
   const f=facturas.find(x=>x.id===id);
   if(!f)return;
@@ -3480,7 +3547,7 @@ async function guardarEdicionFacturaDesdeModal(){
     }
   }
   await loadFacturas(clienteActivo?.id||usuario.cliente_id);
-  renderPage('facturas');
+  renderPage(paginaActivaId());
   resetTabFacturaActual();
   flashGuardado('✓ Cambios guardados. Listo para registrar.');
 }
@@ -4248,9 +4315,17 @@ function validarRucEnFormulario(){
 
 function calcItbmsIngModal(){const g=parseFloat(document.getElementById('fi-grav').value)||0;document.getElementById('fi-itbms').value=(g*0.07).toFixed(2);}
 
-function abrirModalIngreso(){
+function abrirModalIngreso(mes,anioPre){
+  const yr=anioPre!==undefined?Number(anioPre):Number(anioActivo);
   const sel=document.getElementById('fi-anio');
-  if(sel){sel.innerHTML=ANIOS().map(y=>`<option value="${y}" ${Number(anioActivo)===y?'selected':''}>${y}</option>`).join('');}
+  if(sel){sel.innerHTML=ANIOS().map(y=>`<option value="${y}" ${yr===y?'selected':''}>${y}</option>`).join('');}
+  const mSel=document.getElementById('fi-mes');
+  if(mes!==undefined&&mSel) mSel.value=String(mes);
+  const ex=(mes!==undefined)?ingresos.find(i=>Number(i.anio)===yr&&i.mes===Number(mes)):null;
+  document.getElementById('fi-grav').value=ex?(ex.gravable??''):'';
+  document.getElementById('fi-exento').value=ex?(ex.exento??''):'';
+  document.getElementById('fi-itbms').value=ex?(ex.itbms_cobrado??''):'';
+  document.getElementById('fi-ret-ing').value=ex?(ex.retenciones??''):'';
   showModal('modal-ingreso');
 }
 async function guardarIngreso(){
@@ -4258,7 +4333,7 @@ async function guardarIngreso(){
   const anio=parseInt(document.getElementById('fi-anio').value)||new Date().getFullYear();
   const {error}=await sb.from('ingresos').upsert({cliente_id:id,anio,mes,gravable:parseFloat(document.getElementById('fi-grav').value)||0,exento:parseFloat(document.getElementById('fi-exento').value)||0,itbms_cobrado:parseFloat(document.getElementById('fi-itbms').value)||0,retenciones:parseFloat(document.getElementById('fi-ret-ing').value)||0},{onConflict:'cliente_id,anio,mes'});
   if(error){alert('Error: '+error.message);return;}
-  hideModal('modal-ingreso');await loadIngresos(id);renderPage('ingresos');
+  hideModal('modal-ingreso');await loadIngresos(id);renderPage(paginaActivaId());
 }
 async function eliminarIngreso(id){if(!confirm('¿Eliminar?'))return;await sb.from('ingresos').delete().eq('id',id);await loadIngresos(clienteActivo.id);renderPage('ingresos');}
 
@@ -4687,6 +4762,7 @@ function exportExcelConcepto(){
   let lista=[...facturas];
   if(rptConcDesde)lista=lista.filter(f=>(f.fecha_exacta||'')>=rptConcDesde);
   if(rptConcHasta)lista=lista.filter(f=>(f.fecha_exacta||'')<=rptConcHasta);
+  if(rptConcGasto)lista=lista.filter(f=>(f.clasificaciones_gasto?.nombre||'Sin clasificar')===rptConcGasto);
   const grp={};
   lista.forEach(f=>{
     const k=(f.clasificaciones_gasto?.nombre||'Sin clasificar').toUpperCase();
@@ -4695,7 +4771,7 @@ function exportExcelConcepto(){
     grp[k].no_grav+=parseFloat(f.monto_exento||0);
     grp[k].itbms+=parseFloat(f.itbms_factura||0);
   });
-  const headers=esISR?['CONCEPTO','MONTO','TOTAL']:['CONCEPTO','GRAVADO','NO GRAVADO','ITBMS','TOTAL'];
+  const headers=esISR?['GASTO','MONTO','TOTAL']:['GASTO','GRAVADO','NO GRAVADO','ITBMS','TOTAL'];
   const rows=Object.entries(grp).sort((a,b)=>(b[1].grav+b[1].no_grav)-(a[1].grav+a[1].no_grav)).map(([k,v])=>{
     const m=v.grav+v.no_grav;
     return esISR?[k,m,m+v.itbms]:[k,v.grav,v.no_grav,v.itbms,v.grav+v.no_grav+v.itbms];
@@ -4703,7 +4779,7 @@ function exportExcelConcepto(){
 
   const wb=XLSX.utils.book_new();
   const ws=XLSX.utils.aoa_to_sheet([]);
-  const startRow=buildExcelEncabezado(wb,ws,'Resumen por Concepto — '+(esISR?'ISR':'ITBMS'),headers.length);
+  const startRow=buildExcelEncabezado(wb,ws,'Reporte por Gasto — '+(esISR?'ISR':'ITBMS'),headers.length);
   XLSX.utils.sheet_add_aoa(ws,[headers],{origin:{r:startRow-1,c:0}});
   XLSX.utils.sheet_add_aoa(ws,rows,{origin:{r:startRow,c:0}});
   ws['!cols']=[{wch:30},...headers.slice(1).map(()=>({wch:14}))];
@@ -4717,8 +4793,8 @@ function exportExcelConcepto(){
       if(ws[addr]&&typeof ws[addr].v==='number'){if(!ws[addr].s)ws[addr].s={};ws[addr].s.numFmt='#,##0.00';ws[addr].z='#,##0.00';}
     }
   }
-  XLSX.utils.book_append_sheet(wb,ws,'Concepto');
-  excelDownload(wb,'Reporte_Concepto_'+moduloActivo.toUpperCase());
+  XLSX.utils.book_append_sheet(wb,ws,'Gasto');
+  excelDownload(wb,'Reporte_Gasto_'+moduloActivo.toUpperCase());
 }
 
 // -- REPORTE RRHH (Saldos + Movimientos) --
