@@ -10,13 +10,16 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="AENA">
 <link rel="apple-touch-icon" href="aena-logo.png">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230A1628'/%3E%3Ctext x='32' y='42' font-family='Arial,sans-serif' font-size='30' font-weight='700' fill='%237FD84A' text-anchor='middle'%3EA%3C/text%3E%3C/svg%3E">
 <link rel="manifest" href="manifest.json">
 <script>
 // PWA: generar manifest dinámico con logo base64
 const manifestData = {
   "name": "AENA Smart Business Control",
   "short_name": "AENA",
-  "start_url": "/",
+  "start_url": location.origin + "/",
+  "scope": location.origin + "/",
+  "id": "/",
   "display": "standalone",
   "background_color": "#0A1628",
   "theme_color": "#0A1628",
@@ -522,11 +525,11 @@ table.dt th:first-child{padding-left:14px}
       <div class="page" id="page-ingresos">
         <div class="card-header" style="margin-bottom:16px">
           <div class="page-title" style="margin:0">Ingresos mensuales</div>
-          <button class="btn-accion btn-accion-new" onclick="showModal('modal-ingreso')">+ Agregar mes</button>
+          <button class="btn-accion btn-accion-new" onclick="abrirModalIngreso()">+ Agregar mes</button>
         </div>
         <div class="card" style="padding:0;overflow:hidden">
           <div class="tbl-wrap"><table class="dt">
-            <thead><tr><th>MES</th><th>GRAVABLE</th><th>EXENTO</th><th>ITBMS COBRADO</th><th>RETENCIONES</th><th>TOTAL</th><th></th></tr></thead>
+            <thead><tr><th>AÑO</th><th>MES</th><th>GRAVABLE</th><th>EXENTO</th><th>ITBMS COBRADO</th><th>RETENCIONES</th><th>TOTAL</th><th></th></tr></thead>
             <tbody id="tbody-ingresos"></tbody>
           </table></div>
         </div>
@@ -1140,7 +1143,8 @@ table.dt th:first-child{padding-left:14px}
   <div class="modal" style="max-width:440px">
     <div class="modal-title">Ingresos del mes</div>
     <div class="fg">
-      <div class="fg-full"><label class="fl">MES</label><select class="fi" id="fi-mes"><option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option><option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option><option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option><option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option></select></div>
+      <div><label class="fl">AÑO</label><select class="fi" id="fi-anio"></select></div>
+      <div><label class="fl">MES</label><select class="fi" id="fi-mes"><option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option><option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option><option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option><option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option></select></div>
       <div><label class="fl">GRAVABLES ($)</label><input type="number" class="fi" id="fi-grav" placeholder="0.00" oninput="calcItbmsIngModal()" step="0.01"></div>
       <div><label class="fl">EXENTOS ($)</label><input type="number" class="fi" id="fi-exento" placeholder="0.00" step="0.01"></div>
       <div><label class="fl">ITBMS COBRADO (auto 7%)</label><input type="number" class="fi" id="fi-itbms" placeholder="0.00" step="0.01"></div>
@@ -1695,7 +1699,7 @@ const SUPABASE_KEY='sb_publishable_rCbSAjOlexErR9WBN-rfZA_8Tadpfa0';
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
 const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-let anioActivo=2025;
+let anioActivo=new Date().getFullYear();
 const ANIOS=()=>{const a=[];for(let y=2025;y<=new Date().getFullYear()+1;y++)a.push(y);return a;};
 const fmt=n=>'$'+parseFloat(n||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');
 const anio=new Date().getFullYear();
@@ -2077,12 +2081,13 @@ function renderPage(p){
   if(map[p]) map[p]();
 }
 
-function itbmsRes(mes){
-  const ing=ingresos.find(i=>i.mes===mes);
-  const cI=facturas.filter(f=>f.mes===mes).reduce((a,f)=>a+parseFloat(f.itbms_factura||0),0);
+function itbmsRes(mes,anio){
+  if(anio===undefined) anio=anioActivo;
+  const ing=ingresos.find(i=>i.mes===mes&&Number(i.anio)===Number(anio));
+  const cI=facturas.filter(f=>f.mes===mes&&(f.fecha_exacta||'').startsWith(String(anio))).reduce((a,f)=>a+parseFloat(f.itbms_factura||0),0);
   const iI=parseFloat(ing?.itbms_cobrado||0);
   const ret=parseFloat(ing?.retenciones||0);
-  const prev=mes>1?Math.min(0,itbmsRes(mes-1)):0;
+  const prev=mes>1?Math.min(0,itbmsRes(mes-1,anio)):0;
   return iI-cI-ret+prev;
 }
 
@@ -2145,7 +2150,7 @@ function renderDash(){
   const grouped={};facturas.forEach(f=>{const k=f.clasificaciones_gasto?.nombre||'Sin clasificar';grouped[k]=(grouped[k]||0)+parseFloat(f.monto_gravable||0);});
   const ents=Object.entries(grouped).sort((a,b)=>b[1]-a[1]).slice(0,5);const mx=ents[0]?.[1]||1;
   document.getElementById('dash-resumen').innerHTML='<div class="card-header"><div class="card-title">Gastos por clasificación</div></div>'+(ents.length?ents.map(([k,v])=>'<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="font-weight:500">'+k+'</span><span style="font-weight:600;color:var(--blue)">'+fmt(v)+'</span></div><div class="prog-wrap"><div class="prog-bar" style="width:'+(v/mx*100).toFixed(0)+'%;background:var(--blue)"></div></div></div>').join(''):'<div style="font-size:12px;color:var(--muted);text-align:center;padding:20px">Sin datos registrados</div>');
-  document.getElementById('dash-meses').innerHTML='<div class="card-header"><div class="card-title">Estado por mes</div></div><div class="mes-grid">'+MESES.slice(0,6).map((m,i)=>{const mes=i+1,hD=facturas.some(f=>f.mes===mes)||ingresos.some(x=>x.mes===mes);if(!hD)return'<div class="mes-card nd"><div class="mes-nom">'+m.substring(0,3)+'</div><div class="mes-val" style="color:var(--muted)">—</div></div>';if(!esI){const t=facturas.filter(f=>f.mes===mes).reduce((a,f)=>a+parseFloat(f.monto_gravable||0),0);return'<div class="mes-card"><div class="mes-nom">'+m.substring(0,3)+'</div><div class="mes-val" style="color:var(--blue)">'+fmt(t)+'</div></div>';}const r=itbmsRes(mes);return'<div class="mes-card '+(r>0?'dgi':r<0?'cred':'')+'" onclick="selMes='+mes+';goPage(\'itbms\')"><div class="mes-nom">'+m.substring(0,3)+'</div><div class="mes-val" style="color:'+(r>0?'var(--red)':r<0?'var(--green)':'var(--blue)')+'">'+fmt(Math.abs(r))+'</div></div>';}).join('')+'</div>';
+  document.getElementById('dash-meses').innerHTML='<div class="card-header"><div class="card-title">Estado por mes</div></div><div class="mes-grid">'+MESES.slice(0,6).map((m,i)=>{const mes=i+1,hD=facturas.some(f=>f.mes===mes&&(f.fecha_exacta||'').startsWith(String(anioActivo)))||ingresos.some(x=>x.mes===mes&&Number(x.anio)===Number(anioActivo));if(!hD)return'<div class="mes-card nd"><div class="mes-nom">'+m.substring(0,3)+'</div><div class="mes-val" style="color:var(--muted)">—</div></div>';if(!esI){const t=facturas.filter(f=>f.mes===mes&&(f.fecha_exacta||'').startsWith(String(anioActivo))).reduce((a,f)=>a+parseFloat(f.monto_gravable||0),0);return'<div class="mes-card"><div class="mes-nom">'+m.substring(0,3)+'</div><div class="mes-val" style="color:var(--blue)">'+fmt(t)+'</div></div>';}const r=itbmsRes(mes);return'<div class="mes-card '+(r>0?'dgi':r<0?'cred':'')+'" onclick="selMes='+mes+';goPage(\'itbms\')"><div class="mes-nom">'+m.substring(0,3)+'</div><div class="mes-val" style="color:'+(r>0?'var(--red)':r<0?'var(--green)':'var(--blue)')+'">'+fmt(Math.abs(r))+'</div></div>';}).join('')+'</div>';
   document.getElementById('dash-table-title').textContent='Últimas facturas';
   document.getElementById('dash-thead').innerHTML='<th>MES</th><th>PROVEEDOR</th><th>CONCEPTO</th><th>GRAVABLE</th><th>'+(esI?'ITBMS':'IMPUESTO')+'</th><th>TIPO</th>';
   document.getElementById('dash-tbody').innerHTML=[...facturas].reverse().slice(0,5).map(f=>'<tr style="cursor:pointer" ondblclick="abrirEdicionFactura(\''+f.id+'\')" title="Doble clic para editar"><td>'+MESES[(f.mes||1)-1].substring(0,3)+'</td><td>'+( f.proveedor||'—')+'</td><td>'+(f.concepto||'—')+'</td><td>'+fmt(f.monto_gravable)+'</td><td style="color:#B45309;font-weight:600">'+fmt(f.itbms_factura)+'</td><td><span class="tag tag-blue">'+(f.tipo||'Bien')+'</span></td></tr>').join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">Sin facturas registradas</td></tr>';
@@ -2183,24 +2188,26 @@ function renderFacturas(){
   document.getElementById('facturas-totales').innerHTML=kpi('kpi-blue','Gravable',fmt(tg),'')+kpi('kpi-blue','Exento',fmt(te),'')+kpi('kpi-amber','ITBMS / Impuesto',fmt(ti),'')+kpi('kpi-green','Total',fmt(tg+te+ti),'');
 }
 function renderIngresos(){
-  document.getElementById('tbody-ingresos').innerHTML=ingresos.map(ing=>'<tr><td style="font-weight:600">'+MESES[ing.mes-1]+'</td><td>'+fmt(ing.gravable)+'</td><td>'+fmt(ing.exento)+'</td><td style="color:#166534;font-weight:600">'+fmt(ing.itbms_cobrado)+'</td><td>'+fmt(ing.retenciones)+'</td><td style="font-weight:600">'+fmt(parseFloat(ing.gravable||0)+parseFloat(ing.exento||0))+'</td><td><button class="btn btn-danger" onclick="eliminarIngreso(\''+ing.id+'\')">×</button></td></tr>').join('')||'<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">Sin ingresos registrados</td></tr>';
+  document.getElementById('tbody-ingresos').innerHTML=ingresos.map(ing=>'<tr><td style="font-weight:600;color:var(--blue)">'+(ing.anio||'')+'</td><td style="font-weight:600">'+MESES[ing.mes-1]+'</td><td>'+fmt(ing.gravable)+'</td><td>'+fmt(ing.exento)+'</td><td style="color:#166534;font-weight:600">'+fmt(ing.itbms_cobrado)+'</td><td>'+fmt(ing.retenciones)+'</td><td style="font-weight:600">'+fmt(parseFloat(ing.gravable||0)+parseFloat(ing.exento||0))+'</td><td><button class="btn btn-danger" onclick="eliminarIngreso(\''+ing.id+'\')">×</button></td></tr>').join('')||'<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">Sin ingresos registrados</td></tr>';
 }
 
 function renderItbms(){
   const esISR=moduloActivo==='isr';
   document.getElementById('itbms-page-title').textContent=esISR?'Análisis de gastos':'Análisis ITBMS';
-  const mCD=[...new Set([...ingresos.map(i=>i.mes),...facturas.map(f=>f.mes)])].sort((a,b)=>a-b);
+  const ingA=ingresos.filter(i=>Number(i.anio)===Number(anioActivo));
+  const facA=facturas.filter(f=>(f.fecha_exacta||'').startsWith(String(anioActivo)));
+  const mCD=[...new Set([...ingA.map(i=>i.mes),...facA.map(f=>f.mes)])].sort((a,b)=>a-b);
   if(mCD.length&&!mCD.includes(selMes)) selMes=mCD[0];
-  document.getElementById('itbms-mes-grid').innerHTML=MESES.map((m,i)=>{const mes=i+1,hD=ingresos.find(x=>x.mes===mes)||facturas.find(x=>x.mes===mes);if(!hD)return'<div class="mes-card nd"><div class="mes-nom">'+m.substring(0,3)+'</div><div class="mes-val" style="font-size:9px">—</div></div>';const r=itbmsRes(mes);return'<div class="mes-card '+(mes===selMes?'sel':'')+(r>0?' dgi':r<0?' cred':'')+'" onclick="selMes='+mes+';renderItbms()"><div class="mes-nom">'+m.substring(0,3)+'</div><div class="mes-val" style="color:'+(r>0?'var(--red)':r<0?'var(--green)':'var(--blue)')+'">'+fmt(Math.abs(r))+'</div></div>';}).join('');
-  const ing=ingresos.find(i=>i.mes===selMes)||{gravable:0,itbms_cobrado:0,retenciones:0};
-  const cI=facturas.filter(f=>f.mes===selMes).reduce((a,f)=>a+parseFloat(f.itbms_factura||0),0);
+  document.getElementById('itbms-mes-grid').innerHTML=MESES.map((m,i)=>{const mes=i+1,hD=ingA.find(x=>x.mes===mes)||facA.find(x=>x.mes===mes);if(!hD)return'<div class="mes-card nd"><div class="mes-nom">'+m.substring(0,3)+'</div><div class="mes-val" style="font-size:9px">—</div></div>';const r=itbmsRes(mes);return'<div class="mes-card '+(mes===selMes?'sel':'')+(r>0?' dgi':r<0?' cred':'')+'" onclick="selMes='+mes+';renderItbms()"><div class="mes-nom">'+m.substring(0,3)+'</div><div class="mes-val" style="color:'+(r>0?'var(--red)':r<0?'var(--green)':'var(--blue)')+'">'+fmt(Math.abs(r))+'</div></div>';}).join('');
+  const ing=ingA.find(i=>i.mes===selMes)||{gravable:0,itbms_cobrado:0,retenciones:0};
+  const cI=facA.filter(f=>f.mes===selMes).reduce((a,f)=>a+parseFloat(f.itbms_factura||0),0);
   const prev=selMes>1?Math.min(0,itbmsRes(selMes-1)):0;
   const res=itbmsRes(selMes);
   const rc=res>0?'res-dgi':res<0?'res-cred':'res-zero';
   const col=res>0?'#991B1B':res<0?'#166534':'#1E3A8A';
   const lbl=res>0?'PAGAR A DGI':res<0?'CRÉDITO A FAVOR':'SIN MOVIMIENTO';
-  const anioMes=facturas.find(f=>f.mes===selMes)?.fecha_exacta?.substring(0,4)||ingresos.find(i=>i.mes===selMes)?.anio||anio;
-  document.getElementById('itbms-detalle').innerHTML='<div class="two-col"><div class="card"><div class="card-header"><div class="card-title">'+MESES[selMes-1]+' '+anioMes+'</div></div><table class="dt"><tbody><tr><td style="color:var(--muted)">ITBMS en ventas</td><td style="text-align:right;color:#166534;font-weight:600">'+fmt(ing.itbms_cobrado)+'</td></tr><tr><td style="color:var(--muted)">ITBMS en compras (crédito)</td><td style="text-align:right;color:#B45309;font-weight:600">-'+fmt(cI)+'</td></tr><tr><td style="color:var(--muted)">Retenciones</td><td style="text-align:right">-'+fmt(ing.retenciones)+'</td></tr><tr><td style="color:var(--muted)">Crédito mes anterior</td><td style="text-align:right;color:#534AB7">'+fmt(prev)+'</td></tr></tbody><tfoot><tr style="border-top:2px solid var(--border)"><td style="font-weight:600;padding-top:10px">RESULTADO</td><td style="text-align:right;font-weight:700;font-size:15px;color:'+col+';padding-top:10px">'+fmt(Math.abs(res))+'</td></tr></tfoot></table></div><div><div class="res-card '+rc+'"><div style="font-size:10px;font-weight:700;color:'+col+';letter-spacing:2px;margin-bottom:6px">'+lbl+'</div><div class="res-val" style="color:'+col+'">'+fmt(Math.abs(res))+'</div><div class="res-lbl" style="color:'+col+';opacity:0.7">'+MESES[selMes-1]+' '+anioMes+'</div></div><div class="card"><div class="card-title">Facturas del mes</div>'+facturas.filter(f=>f.mes===selMes).map(f=>'<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:0.5px solid var(--border);font-size:12px"><span style="color:var(--muted)">'+( f.proveedor||'—')+' — '+(f.concepto||'')+'</span><span style="font-weight:600">'+fmt(f.itbms_factura)+'</span></div>').join('')+'</div></div></div>';
+  const anioMes=facA.find(f=>f.mes===selMes)?.fecha_exacta?.substring(0,4)||ingA.find(i=>i.mes===selMes)?.anio||anioActivo;
+  document.getElementById('itbms-detalle').innerHTML='<div class="two-col"><div class="card"><div class="card-header"><div class="card-title">'+MESES[selMes-1]+' '+anioMes+'</div></div><table class="dt"><tbody><tr><td style="color:var(--muted)">ITBMS en ventas</td><td style="text-align:right;color:#166534;font-weight:600">'+fmt(ing.itbms_cobrado)+'</td></tr><tr><td style="color:var(--muted)">ITBMS en compras (crédito)</td><td style="text-align:right;color:#B45309;font-weight:600">-'+fmt(cI)+'</td></tr><tr><td style="color:var(--muted)">Retenciones</td><td style="text-align:right">-'+fmt(ing.retenciones)+'</td></tr><tr><td style="color:var(--muted)">Crédito mes anterior</td><td style="text-align:right;color:#534AB7">'+fmt(prev)+'</td></tr></tbody><tfoot><tr style="border-top:2px solid var(--border)"><td style="font-weight:600;padding-top:10px">RESULTADO</td><td style="text-align:right;font-weight:700;font-size:15px;color:'+col+';padding-top:10px">'+fmt(Math.abs(res))+'</td></tr></tfoot></table></div><div><div class="res-card '+rc+'"><div style="font-size:10px;font-weight:700;color:'+col+';letter-spacing:2px;margin-bottom:6px">'+lbl+'</div><div class="res-val" style="color:'+col+'">'+fmt(Math.abs(res))+'</div><div class="res-lbl" style="color:'+col+';opacity:0.7">'+MESES[selMes-1]+' '+anioMes+'</div></div><div class="card"><div class="card-title">Facturas del mes</div>'+facA.filter(f=>f.mes===selMes).map(f=>'<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:0.5px solid var(--border);font-size:12px"><span style="color:var(--muted)">'+( f.proveedor||'—')+' — '+(f.concepto||'')+'</span><span style="font-weight:600">'+fmt(f.itbms_factura)+'</span></div>').join('')+'</div></div></div>';
 }
 
 function renderIsr(){
@@ -2298,7 +2305,7 @@ if(!facturas||!facturas.length){document.getElementById('reporte-anual-content')
 function renderRptItbms(){
   const clienteNombre=clienteActivo?.nombre||'';
   const facturasAnio=facturas.filter(f=>(f.fecha_exacta||'').startsWith(String(anioActivo)));
-  const ingresosAnio=ingresos.filter(i=>i.anio===anioActivo);
+  const ingresosAnio=ingresos.filter(i=>Number(i.anio)===Number(anioActivo));
   let html=`<div style="background:var(--navy);color:#fff;border-radius:12px 12px 0 0;padding:16px 20px">
     <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px">Reporte anual ITBMS ${anioActivo}</div>
     <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px">${clienteNombre}</div>
@@ -2327,8 +2334,8 @@ function renderRptItbms(){
     html+=`<tr style="${fi%2===0?'background:#FAFBFF':'background:#fff'}"><td style="padding:7px 10px;border-bottom:1px solid var(--border);font-weight:${fila.bold?'600':'400'}">${fila.lbl}</td>${celdas}<td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:right;font-weight:600">${fmt(tot)}</td></tr>`;
   });
 
-  const resRow=MESES.map((m,i)=>{const r=itbmsRes(i+1);return`<td style="padding:8px 6px;text-align:right;font-weight:700;color:${r>0?'#EF4444':r<0?'#22C55E':'#fff'}">${fmt(r)}</td>`;}).join('');
-  const totRes=itbmsRes(12);
+  const resRow=MESES.map((m,i)=>{const r=itbmsRes(i+1,anioActivo);return`<td style="padding:8px 6px;text-align:right;font-weight:700;color:${r>0?'#EF4444':r<0?'#22C55E':'#fff'}">${fmt(r)}</td>`;}).join('');
+  const totRes=itbmsRes(12,anioActivo);
   html+=`<tr style="background:var(--navy)"><td style="padding:8px 10px;color:#fff;font-weight:700">TOTAL A PAGAR / SALDO A FAVOR</td>${resRow}<td style="padding:8px 10px;text-align:right;color:#fff;font-weight:700">${fmt(totRes)}</td></tr>`;
   html+=`</tbody></table></div></div>`;
   document.getElementById('rpt-itbms-content').innerHTML=html;
@@ -4241,8 +4248,14 @@ function validarRucEnFormulario(){
 
 function calcItbmsIngModal(){const g=parseFloat(document.getElementById('fi-grav').value)||0;document.getElementById('fi-itbms').value=(g*0.07).toFixed(2);}
 
+function abrirModalIngreso(){
+  const sel=document.getElementById('fi-anio');
+  if(sel){sel.innerHTML=ANIOS().map(y=>`<option value="${y}" ${Number(anioActivo)===y?'selected':''}>${y}</option>`).join('');}
+  showModal('modal-ingreso');
+}
 async function guardarIngreso(){
   const id=clienteActivo?.id;const mes=parseInt(document.getElementById('fi-mes').value);
+  const anio=parseInt(document.getElementById('fi-anio').value)||new Date().getFullYear();
   const {error}=await sb.from('ingresos').upsert({cliente_id:id,anio,mes,gravable:parseFloat(document.getElementById('fi-grav').value)||0,exento:parseFloat(document.getElementById('fi-exento').value)||0,itbms_cobrado:parseFloat(document.getElementById('fi-itbms').value)||0,retenciones:parseFloat(document.getElementById('fi-ret-ing').value)||0},{onConflict:'cliente_id,anio,mes'});
   if(error){alert('Error: '+error.message);return;}
   hideModal('modal-ingreso');await loadIngresos(id);renderPage('ingresos');
@@ -4632,7 +4645,7 @@ function exportExcelAnual(){
 // -- REPORTE ANUAL ITBMS --
 function exportExcelRptItbms(){
   const facturasAnio=facturas.filter(f=>(f.fecha_exacta||'').startsWith(String(anioActivo)));
-  const ingresosAnio=ingresos.filter(i=>i.anio===anioActivo);
+  const ingresosAnio=ingresos.filter(i=>Number(i.anio)===Number(anioActivo));
   const headers=['CONCEPTO',...MESES.map(m=>m.substring(0,3)),'TOTAL'];
   const filas=[
     {lbl:'Ingresos Gravados',fn:(m)=>parseFloat(ingresosAnio.find(i=>i.mes===m)?.gravable||0)},
