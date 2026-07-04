@@ -6,6 +6,15 @@
 
 ---
 
+## ⏰ NOTA DE HOY — 2026-07-04
+
+- **8:30 am: reunión de Amilkar con Licda. Kiria Plaza** para mostrar avances y **darle acceso al sistema**.
+- Durante la reunión, Claude actúa como **soporte técnico rápido**: respuestas **directas y cortas**, nada de explicaciones largas. Ir al grano para poder responder al instante.
+- Kiria (`dbdd0bef-7230-417d-82f3-78f2acca45db`) ya quedó lista: plan de cuentas y proveedores clonados de Dra. Lemm, y su ITBMS de compras configurado como **gasto** (cuenta `5150 · Gasto ITBMS`).
+- Para darle acceso: usar el modal **"✉ Invitar usuario"** (panel 👑 Gestión) → generar invitación con `cliente_ids` = Kiria → ella la acepta en `invitacion.html`.
+
+---
+
 ## 🔗 Accesos y URLs
 
 | Recurso | URL |
@@ -205,6 +214,7 @@ Diseño tipo "escritorio" para no bloquear el sistema al abrir formularios.
 ## 🔜 Trabajo Pendiente
 
 - **Facturas de Dra. Lemm sin cuenta contable:** muchas facturas de compra no tienen `cuenta_id` asignado → salen como `—`/"Sin clasificar" en la columna GASTO y no suman en el reporte por gasto. Se pueden clasificar abriendo cada factura (clic en la fila → elegir cuenta → guardar). Amilkar evaluó opciones ofrecidas (columna "gasto" en el importador CSV; o clasificador rápido por fila en el detallado) — **pendiente de decidir cuál construir**.
+- **Dar acceso a Kiria en la reunión de hoy** (ver Nota de Hoy): invitación por `usuario_clientes`.
 - **Mejoras al módulo RRHH** para registro diario (interés declarado de Amilkar; aún sin empezar).
 - **Editar facturas de ingreso:** hoy solo hay alta. Falta flujo de edición y que **regenere su asiento** al editar (como ya hace la factura de compra).
 - **Seguridad `clientes_public_read`:** cerrar la política que deja listar nombres de todas las empresas a cualquier sesión. Cambiar a que cada quien vea solo los nombres de sus empresas (super_admin todos).
@@ -284,3 +294,10 @@ Diseño tipo "escritorio" para no bloquear el sistema al abrir formularios.
 - **Drill-down:** cualquier monto por mes/año/gasto abre la factura para editarla sin salir de la vista (`modal-drill` + `drillFacturas`/`drillMes`/`drillGasto`/`facturasDe`). Al guardar edición se refresca la página activa (`paginaActivaId()`). Ver sección Ventanas.
 - **GASTO = cuenta contable (en módulo contable):** el filtro de gasto solo mostraba "Sin clasificar" y la columna GASTO salía "—" porque en contable la factura se clasifica por **`cuenta_id`** (cuenta contable), no por `clasificaciones_gasto`. Se creó `gastoDe(f)` (cuenta en contable, clasificación en ITBMS/ISR) y `nombresGastoDisponibles()` (catálogo del módulo, auto-actualizable), aplicados en columnas, agrupaciones, filtros, drill y Excel. `drillGasto` se hizo case-insensitive (el por-gasto agrupa en MAYÚSCULAS).
 - **Dato:** las facturas de compra de la Dra. Lemm que no tienen `cuenta_id` siguen mostrándose sin gasto; hay que asignarles cuenta (ver Trabajo Pendiente).
+
+### Sesión 7 — 2026-07-04
+**Clon Dra. Lemm → Kiria, búsqueda de cuentas por nombre, e ITBMS→gasto para Kiria. Prep para reunión 8:30am.**
+- **Clon Dra. Lemm → Licda. Kiria Plaza (solo datos, vía SQL):** se clonó el **plan de cuentas** (solo las que le faltaban a Kiria; ella ya tenía 35, terminó en 47) y la **lista de proveedores** (0 → 49). Guardas: `not exists` anti-duplicados (cuentas por `numero_cuenta`, proveedores por nombre/RUC) y salvaguarda de una sola cuenta `es_itbms`. **No** se clonaron asientos/facturas/ingresos (datos operativos propios de cada cliente). IDs: Lemm `ab2450ae-cccf-4323-9f6d-6a68b3171d60`, Kiria `dbdd0bef-7230-417d-82f3-78f2acca45db`.
+- **Búsqueda de cuenta contable por nombre (código, `index.html`, en `main`):** los campos/filtros de cuenta ahora permiten escribir **nombre o número** (ej. "estaci") con `<input list>`+`<datalist>`. Aplicado en 4 puntos: (1) selector de cuenta en la línea de la factura de compra — resuelve a una cuenta vía `cuentaIdDesdeTexto()`, conserva la opción "➕ Agregar cuenta nueva…"; (2) filtro GASTO del **Reporte por gasto**; (3) filtro GASTO del **Reporte detallado** (y su Excel); (4) selector de cuenta del **Mayor General**. Filtros de reporte usan match "contiene" (case-insensitive). Helpers nuevos: `cuentaDisplay()`, `cuentaIdDesdeTexto()`, `onCuentaLineaInput()`. Aplica a **todas** las empresas con módulo contable. **NO** se tocaron (por ahora, más cortos/delicados): campo de cuenta en factura de ingreso (`mfi-cuenta`), contrapartida (`fc-contrapartida`), editor manual de asientos.
+- **ITBMS→gasto solo para Kiria (SQL, sin código):** Kiria no es contribuyente de ITBMS (0 ITBMS en ventas). Se creó cuenta `5150 · Gasto ITBMS` (tipo gasto, deudora, movimiento), se **marcó como su cuenta `es_itbms`** y se desmarcó la 2102, y se movieron las **25 líneas de ITBMS de compra ($183.03)** de 2102 → 5150. Efecto: histórico reubicado (asientos siguen cuadrados, débito→débito) y facturas futuras de Kiria mandan el ITBMS al gasto automáticamente, sin cambio de código. La 2102 de Kiria quedó sin uso (saldo 0, sin marcar).
+  - **Regla nueva:** `es_itbms` es **por-cliente**. Para un cliente **no contribuyente**, se puede apuntar `es_itbms` a una cuenta de **gasto** para que el ITBMS de compras sea costo (válido solo si NO cobra ITBMS en ventas; si algún día cobra, replantear).
