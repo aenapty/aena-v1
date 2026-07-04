@@ -903,7 +903,7 @@ table.dt th:first-child{padding-left:14px}
         <div class="page-title">Mayor General</div>
         <div class="form-section">
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-bottom:12px">
-            <div style="min-width:240px"><label class="fl">CUENTA</label><select class="fi" id="may-cuenta" onchange="renderMayor()"></select></div>
+            <div style="min-width:240px"><label class="fl">CUENTA</label><input type="text" class="fi" id="may-cuenta" list="may-cuenta-dl" onchange="renderMayor()" placeholder="Escribe nombre o N° de cuenta…" autocomplete="off"><datalist id="may-cuenta-dl"></datalist></div>
             <div><label class="fl">DESDE</label><input type="date" class="fi" id="may-desde" onchange="renderMayor()"></div>
             <div><label class="fl">HASTA</label><input type="date" class="fi" id="may-hasta" onchange="renderMayor()"></div>
           </div>
@@ -2417,6 +2417,24 @@ function gastoDe(f){
   }
   return f.clasificaciones_gasto?.nombre||'Sin clasificar';
 }
+function cuentaDisplay(id){ const c=cuentas.find(x=>x.id===id); return c?(c.numero_cuenta+' · '+c.nombre):''; }
+function cuentaIdDesdeTexto(txt,pool){
+  const t=(txt||'').trim().toLowerCase(); if(!t) return '';
+  const arr=pool||cuentas.filter(c=>c.es_movimiento&&c.activo!==false);
+  let m=arr.find(c=>(c.numero_cuenta+' · '+c.nombre).toLowerCase()===t); if(m) return m.id;
+  m=arr.find(c=>String(c.numero_cuenta).toLowerCase()===t); if(m) return m.id;
+  const cont=arr.filter(c=>(c.numero_cuenta+' · '+c.nombre).toLowerCase().includes(t));
+  if(cont.length===1) return cont[0].id;
+  return '';
+}
+function onCuentaLineaInput(i,el){
+  const txt=(el.value||'').trim();
+  if(txt==='➕ Agregar cuenta nueva…'){ el.value=cuentaDisplay(lineasFactura[i].cuenta_id); abrirNuevaCuenta(); return; }
+  if(!txt){ lineasFactura[i].cuenta_id=''; return; }
+  const id=cuentaIdDesdeTexto(txt);
+  if(id){ lineasFactura[i].cuenta_id=id; el.value=cuentaDisplay(id); }
+  else { lineasFactura[i].cuenta_id=''; el.value=''; }
+}
 function nombresGastoDisponibles(){
   let def;
   if(moduloActivo==='contable'){
@@ -2433,11 +2451,11 @@ function nombresGastoDisponibles(){
 function renderRptConcepto(){
   const esISR=moduloActivo==='isr';
   document.getElementById('rpt-conc-titulo').textContent=esISR?'Reporte por gasto — ISR':'Reporte por gasto';
-  const gastoOpts='<option value="">Todos los gastos</option>'+nombresGastoDisponibles().map(c=>`<option value="${c}" ${rptConcGasto===c?'selected':''}>${c}</option>`).join('');
+  const gastoDL=nombresGastoDisponibles().map(c=>`<option value="${c.replace(/"/g,'&quot;')}"></option>`).join('');
   document.getElementById('rpt-conc-filtro').innerHTML=`<div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 14px;display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap">
     <div><label class="fl">FECHA DESDE</label><input type="date" class="fi" id="rpt-conc-desde" style="min-width:140px" value="${rptConcDesde}"></div>
     <div><label class="fl">FECHA HASTA</label><input type="date" class="fi" id="rpt-conc-hasta" style="min-width:140px" value="${rptConcHasta}"></div>
-    <div><label class="fl">GASTO</label><select class="fi" id="rpt-conc-gasto" style="min-width:180px">${gastoOpts}</select></div>
+    <div><label class="fl">GASTO</label><input type="text" class="fi" id="rpt-conc-gasto" list="rpt-conc-gasto-dl" placeholder="Todos — o escribe nombre/N°" value="${(rptConcGasto||'').replace(/"/g,'&quot;')}" autocomplete="off" style="min-width:210px"><datalist id="rpt-conc-gasto-dl">${gastoDL}</datalist></div>
     <button class="btn btn-primary btn-sm" onclick="aplicarFiltrosConcepto()">Buscar</button>
     <button class="btn btn-outline btn-sm" onclick="limpiarFiltrosConcepto()">Limpiar</button>
   </div>`;
@@ -2445,7 +2463,7 @@ function renderRptConcepto(){
   let lista=[...facturas];
   if(rptConcDesde) lista=lista.filter(f=>(f.fecha_exacta||'')>=rptConcDesde);
   if(rptConcHasta) lista=lista.filter(f=>(f.fecha_exacta||'')<=rptConcHasta);
-  if(rptConcGasto) lista=lista.filter(f=>gastoDe(f)===rptConcGasto);
+  if(rptConcGasto){const _q=rptConcGasto.trim().toLowerCase();lista=lista.filter(f=>gastoDe(f).toLowerCase().includes(_q));}
 
   const grp={};
   lista.forEach(f=>{
@@ -2499,18 +2517,18 @@ function renderRptDetallado(mes,conc,prov){
   if(mes!==undefined)rptDetMes=mes;
   if(conc!==undefined)rptDetConc=conc;
   if(prov!==undefined)rptDetProv=prov;
-  const concOpts='<option value="">Todos</option>'+nombresGastoDisponibles().map(c=>`<option value="${c}" ${rptDetConc===c?'selected':''}>${c}</option>`).join('');
+  const concDL=nombresGastoDisponibles().map(c=>`<option value="${c.replace(/"/g,'&quot;')}"></option>`).join('');
   const provOpts='<option value="">Todos</option>'+[...new Set(facturas.map(f=>f.proveedor||'').filter(Boolean))].sort().map(p=>`<option value="${p}" ${rptDetProv===p?'selected':''}>${p}</option>`).join('');
   document.getElementById('rpt-det-filtro').innerHTML=`<div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap">
     <div><label class="fl">FECHA DESDE</label><input type="date" class="fi" id="rpt-det-sel-desde" style="min-width:140px" value="${rptDetFechaDesde}"></div>
     <div><label class="fl">FECHA HASTA</label><input type="date" class="fi" id="rpt-det-sel-hasta" style="min-width:140px" value="${rptDetFechaHasta}"></div>
-    <div><label class="fl">GASTO</label><select class="fi" id="rpt-det-sel-conc" style="min-width:160px">${concOpts}</select></div>
+    <div><label class="fl">GASTO</label><input type="text" class="fi" id="rpt-det-sel-conc" list="rpt-det-conc-dl" placeholder="Todos — o escribe nombre/N°" value="${(rptDetConc||'').replace(/"/g,'&quot;')}" autocomplete="off" style="min-width:190px"><datalist id="rpt-det-conc-dl">${concDL}</datalist></div>
     <div><label class="fl">PROVEEDOR</label><select class="fi" id="rpt-det-sel-prov" style="min-width:160px">${provOpts}</select></div>
     <button class="btn btn-primary btn-sm" onclick="aplicarFiltrosDetallado()">Buscar</button>
     <button class="btn btn-outline btn-sm" onclick="limpiarFiltrosDetallado()">Limpiar</button>
   </div>`;
   let lista=[...facturas];
-  if(rptDetConc)lista=lista.filter(f=>gastoDe(f)===rptDetConc);
+  if(rptDetConc){const _q=rptDetConc.trim().toLowerCase();lista=lista.filter(f=>gastoDe(f).toLowerCase().includes(_q));}
   if(rptDetProv)lista=lista.filter(f=>(f.proveedor||'')===rptDetProv);
   if(rptDetFechaDesde)lista=lista.filter(f=>(f.fecha_exacta||'')>=rptDetFechaDesde);
   if(rptDetFechaHasta)lista=lista.filter(f=>(f.fecha_exacta||'')<=rptDetFechaHasta);
@@ -3303,13 +3321,13 @@ function renderLineas(){
   '<div style="display:grid;grid-template-columns:110px 1fr 1.3fr 85px 85px 85px 28px;gap:6px;align-items:center;padding:7px 0;border-bottom:.5px solid var(--border)">'+
   '<input type="text" class="fi" placeholder="N° factura" value="'+(l.nf||'')+'" oninput="lineasFactura['+i+'].nf=this.value" style="font-size:11px">'+
   '<input type="text" class="fi" placeholder="Detalle del gasto" value="'+(l.detalle||'')+'" oninput="lineasFactura['+i+'].detalle=this.value;lineasFactura['+i+'].concepto=this.value" style="font-size:11px">'+
-  '<select class="fi" onchange="'+(esC?'onCuentaLineaChange('+i+',this.value)':'lineasFactura['+i+'].clasificacion_id=this.value')+'" style="font-size:11px">'+optsFor(esC?(l.cuenta_id||''):(l.clasificacion_id||''))+(esC?'<option value="__nueva__">+ Agregar cuenta…</option>':'')+'</select>'+
+  (esC?('<input type="text" class="fi" list="cuentas-line-dl" placeholder="N° o nombre de cuenta…" value="'+cuentaDisplay(l.cuenta_id||'').replace(/"/g,'&quot;')+'" onchange="onCuentaLineaInput('+i+',this)" autocomplete="off" style="font-size:11px">'):('<select class="fi" onchange="lineasFactura['+i+'].clasificacion_id=this.value" style="font-size:11px">'+optsFor(l.clasificacion_id||'')+'</select>'))+
   '<input type="number" class="fi" placeholder="0.00" value="'+(l.gravable||'')+'" step="0.01" oninput="lineasFactura['+i+'].gravable=this.value;autoItbms('+i+')" style="font-size:11px">'+
   '<input type="number" class="fi" placeholder="0.00" value="'+(l.exento||'')+'" step="0.01" oninput="lineasFactura['+i+'].exento=this.value;updateTotalItbms()" style="font-size:11px">'+
   '<input type="number" class="fi" placeholder="0.00" value="'+(l.itbms||'')+'" step="0.01" id="itbms-linea-'+i+'" oninput="lineasFactura['+i+'].itbms=this.value;updateTotalItbms()" style="font-size:11px">'+
   '<button class="btn btn-danger" onclick="removeLinea('+i+')" style="padding:3px 6px">x</button>'+
   '</div>'
-).join(''); 
+).join('')+(esC?('<datalist id="cuentas-line-dl">'+cuentas.filter(c=>c.es_movimiento&&c.activo!==false).map(c=>'<option value="'+(c.numero_cuenta+' · '+c.nombre).replace(/"/g,'&quot;')+'"></option>').join('')+'<option value="➕ Agregar cuenta nueva…"></option></datalist>'):''); 
   updateTotalItbms();
 }
 function autoItbms(i){const g=parseFloat(lineasFactura[i].gravable)||0;lineasFactura[i].itbms=(g*0.07).toFixed(2);const el=document.getElementById('itbms-linea-'+i);if(el)el.value=lineasFactura[i].itbms;updateTotalItbms();}
@@ -4659,7 +4677,7 @@ function excelDownload(wb,filename){
 // -- REPORTE DETALLADO (ISR/ITBMS) --
 function exportExcelDetallado(){
   let lista=[...facturas];
-  if(rptDetConc)lista=lista.filter(f=>gastoDe(f)===rptDetConc);
+  if(rptDetConc){const _q=rptDetConc.trim().toLowerCase();lista=lista.filter(f=>gastoDe(f).toLowerCase().includes(_q));}
   if(rptDetProv)lista=lista.filter(f=>(f.proveedor||'')===rptDetProv);
   if(rptDetFechaDesde)lista=lista.filter(f=>(f.fecha_exacta||'')>=rptDetFechaDesde);
   if(rptDetFechaHasta)lista=lista.filter(f=>(f.fecha_exacta||'')<=rptDetFechaHasta);
@@ -6033,8 +6051,9 @@ function saldosPorCuenta(desde,hasta){
 /* ---------- Mayor General ---------- */
 function renderMayor(){
   const selEl=document.getElementById('may-cuenta');
-  if(selEl&&!selEl.dataset.filled){selEl.innerHTML='<option value="">— Selecciona una cuenta —</option>'+cuentasMov().map(c=>'<option value="'+c.id+'">'+c.numero_cuenta+' · '+c.nombre+'</option>').join('');selEl.dataset.filled='1';}
-  const cuentaId=selEl?.value||'';
+  const _dl=document.getElementById('may-cuenta-dl');
+  if(_dl){_dl.innerHTML=cuentasMov().map(c=>'<option value="'+(c.numero_cuenta+' · '+c.nombre).replace(/"/g,'&quot;')+'"></option>').join('');}
+  const cuentaId=cuentaIdDesdeTexto(selEl?.value||'', cuentasMov());
   const d=document.getElementById('may-desde')?.value||'';
   const h=document.getElementById('may-hasta')?.value||'';
   const tb=document.getElementById('tbody-mayor');
